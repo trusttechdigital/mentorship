@@ -1,4 +1,3 @@
-// models/Mentee.js
 module.exports = (sequelize, DataTypes) => {
   const Mentee = sequelize.define('Mentee', {
     id: {
@@ -6,6 +5,7 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
+    // Existing fields
     firstName: {
       type: DataTypes.STRING,
       allowNull: false
@@ -18,38 +18,86 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true,
-      validate: {
-        isEmail: true
-      }
+      validate: { isEmail: true }
     },
-    phone: {
-      type: DataTypes.STRING
-    },
-    mentorId: {
-      type: DataTypes.UUID,
-      references: {
-        model: 'staff',
-        key: 'id'
-      }
-    },
-    programStartDate: {
-      type: DataTypes.DATE,
+    // NEW CSV FIELDS
+    hypeId: {
+      type: DataTypes.STRING,
+      unique: true,
       allowNull: false
     },
-    programEndDate: {
-      type: DataTypes.DATE
+    court: {
+      type: DataTypes.STRING,
+      allowNull: true
     },
+    photoUrl: {
+      type: DataTypes.STRING,
+      allowNull: true // Digital Ocean Spaces URL
+    },
+    gender: {
+      type: DataTypes.ENUM('Male', 'Female', 'Other'),
+      allowNull: true
+    },
+    dateOfBirth: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    age: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    offenceType: {
+      type: DataTypes.ENUM(
+        'Vandalism',
+        'Criminal Trespass', 
+        'Burglary',
+        'Arson',
+        'Theft/Shoplifting',
+        'Motor Vehicle Theft',
+        'Assault/Battery',
+        'Robbery',
+        'Harassment', 
+        'Sexual Assault',
+        'Drug Possession',
+        'Underage Drinking',
+        'Drug Law Violations',
+        'Disorderly Conduct',
+        'Curfew Violations',
+        'Truancy',
+        'Wandering'
+      ),
+      allowNull: true
+    },
+    schoolOrganization: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    formGrade: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    probationOfficer: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    // Update existing status field
     status: {
-      type: DataTypes.ENUM('active', 'completed', 'on-hold', 'dropped'),
-      defaultValue: 'active'
+      type: DataTypes.ENUM('Active', 'On-Hold', 'Completed', 'Discharged', 'Pending'),
+      defaultValue: 'Pending'
     },
+    // Keep existing fields
+    phone: { type: DataTypes.STRING },
+    mentorId: {
+      type: DataTypes.UUID,
+      references: { model: 'staff', key: 'id' }
+    },
+    programStartDate: { type: DataTypes.DATE, allowNull: false },
+    programEndDate: { type: DataTypes.DATE },
     goals: {
       type: DataTypes.ARRAY(DataTypes.STRING),
       defaultValue: []
     },
-    notes: {
-      type: DataTypes.TEXT
-    }
+    notes: { type: DataTypes.TEXT }
   }, {
     timestamps: true,
     tableName: 'mentees'

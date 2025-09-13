@@ -32,6 +32,12 @@ module.exports = (sequelize, DataTypes) => {
     },
     userAgent: {
       type: DataTypes.STRING
+    },
+    // Make sessionId nullable to allow existing records
+    sessionId: {
+      type: DataTypes.STRING,
+      allowNull: true,  // Changed from false to true
+      defaultValue: 'legacy-session'  // Provide default for existing records
     }
   }, {
     timestamps: true,

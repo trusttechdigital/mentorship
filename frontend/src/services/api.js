@@ -3,64 +3,71 @@ import toast from 'react-hot-toast';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
+console.log('🔗 API Client initialized with base URL:', API_BASE_URL);
+
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 5000, // Reduced timeout for faster fallback
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
-
-// Track backend availability
-let backendAvailable = true;
-let lastCheckTime = 0;
-const CHECK_INTERVAL = 30000; // Check every 30 seconds
 
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    // Only look for 'token' key (consistent with AuthContext)
+    const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('🔑 Adding token to request:', { 
+        endpoint: config.url, 
+        hasToken: !!token,
+        method: config.method?.toUpperCase()
+      });
+    } else {
+      console.log('🔓 No token found for request:', {
+        endpoint: config.url,
+        method: config.method?.toUpperCase()
+      });
     }
     return config;
   },
   (error) => {
+    console.log('❌ Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
 
 axiosInstance.interceptors.response.use(
   (response) => {
-    // Backend is working
-    backendAvailable = true;
+    console.log('✅ API Response:', {
+      endpoint: response.config.url,
+      status: response.status,
+      method: response.config.method?.toUpperCase()
+    });
     return response;
   },
   (error) => {
+    console.log('❌ API Error:', {
+      endpoint: error.config?.url,
+      status: error.response?.status,
+      method: error.config?.method?.toUpperCase(),
+      message: error.message
+    });
+
     if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
+      console.log('🚫 401 Unauthorized - clearing tokens and redirecting to login');
       localStorage.removeItem('token');
-      window.location.href = '/login';
-    }
-    
-    // Check if it's a connection error
-    if (error.code === 'ERR_NETWORK' || 
-        error.code === 'ECONNABORTED' || 
-        error.code === 'ERR_CONNECTION_RESET' ||
-        !error.response) {
-      backendAvailable = false;
-      console.log('Backend not available, using mock data');
+      localStorage.removeItem('isLoggedIn');
+      // Only redirect if not already on login page
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
     
     return Promise.reject(error);
   }
 );
-
-// Helper function to check if we should use mock data
-const shouldUseMockData = () => {
-  const now = Date.now();
-  if (now - lastCheckTime > CHECK_INTERVAL) {
-    lastCheckTime = now;
-    // Could do a quick health check here
-  }
-  return !backendAvailable;
-};
 
 export const apiClient = {
   get: async (endpoint) => {
@@ -68,9 +75,7 @@ export const apiClient = {
       const response = await axiosInstance.get(endpoint);
       return response.data;
     } catch (error) {
-      // Instead of throwing, return null to indicate fallback should be used
-      console.log(`API GET ${endpoint} failed, using mock data fallback`);
-      return null;
+      throw new Error(error.response?.data?.message || error.message);
     }
   },
 
@@ -79,16 +84,6 @@ export const apiClient = {
       const response = await axiosInstance.post(endpoint, data);
       return response.data;
     } catch (error) {
-      // For mutations, we can show a warning but simulate success
-      if (!backendAvailable) {
-        console.log(`API POST ${endpoint} failed, simulating success for demo`);
-        // Return a mock successful response
-        return { 
-          success: true, 
-          message: 'Operation completed (Demo Mode)',
-          data: { ...data, id: Date.now().toString() }
-        };
-      }
       throw new Error(error.response?.data?.message || error.message);
     }
   },
@@ -98,14 +93,6 @@ export const apiClient = {
       const response = await axiosInstance.put(endpoint, data);
       return response.data;
     } catch (error) {
-      if (!backendAvailable) {
-        console.log(`API PUT ${endpoint} failed, simulating success for demo`);
-        return { 
-          success: true, 
-          message: 'Update completed (Demo Mode)',
-          data 
-        };
-      }
       throw new Error(error.response?.data?.message || error.message);
     }
   },
@@ -115,14 +102,6 @@ export const apiClient = {
       const response = await axiosInstance.patch(endpoint, data);
       return response.data;
     } catch (error) {
-      if (!backendAvailable) {
-        console.log(`API PATCH ${endpoint} failed, simulating success for demo`);
-        return { 
-          success: true, 
-          message: 'Update completed (Demo Mode)',
-          data 
-        };
-      }
       throw new Error(error.response?.data?.message || error.message);
     }
   },
@@ -132,13 +111,6 @@ export const apiClient = {
       const response = await axiosInstance.delete(endpoint);
       return response.data;
     } catch (error) {
-      if (!backendAvailable) {
-        console.log(`API DELETE ${endpoint} failed, simulating success for demo`);
-        return { 
-          success: true, 
-          message: 'Deletion completed (Demo Mode)'
-        };
-      }
       throw new Error(error.response?.data?.message || error.message);
     }
   },
@@ -153,14 +125,6 @@ export const apiClient = {
       });
       return response.data;
     } catch (error) {
-      if (!backendAvailable) {
-        console.log(`File upload to ${endpoint} failed, simulating success for demo`);
-        return { 
-          success: true, 
-          message: 'File uploaded (Demo Mode)',
-          filename: 'demo-file.pdf'
-        };
-      }
       throw new Error(error.response?.data?.message || error.message);
     }
   },
@@ -172,29 +136,7 @@ export const apiClient = {
       });
       return response;
     } catch (error) {
-      if (!backendAvailable) {
-        console.log(`File download from ${endpoint} failed, backend unavailable`);
-        // Create a mock blob for demo
-        const mockContent = 'Demo file content - backend not available';
-        const blob = new Blob([mockContent], { type: 'text/plain' });
-        return { data: blob, headers: { 'content-type': 'text/plain' } };
-      }
       throw new Error(error.response?.data?.message || error.message);
     }
-  },
-
-  // Health check function
-  healthCheck: async () => {
-    try {
-      const response = await axiosInstance.get('/health', { timeout: 3000 });
-      backendAvailable = true;
-      return response.data;
-    } catch (error) {
-      backendAvailable = false;
-      return null;
-    }
-  },
-
-  // Utility to check backend status
-  isBackendAvailable: () => backendAvailable
+  }
 };

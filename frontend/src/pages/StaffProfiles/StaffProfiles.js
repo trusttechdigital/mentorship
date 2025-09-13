@@ -421,14 +421,17 @@ const CreateStaffModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
     department: '',
     hireDate: new Date().toISOString().split('T')[0],
     bio: '',
-    skills: []
+    skillsText: ''  // Changed from skills array to skillsText string
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const submitData = {
       ...formData,
-      skills: formData.skills.filter(skill => skill.trim() !== '')
+      skills: formData.skillsText
+        .split('\n')
+        .map(skill => skill.trim())
+        .filter(skill => skill !== '')
     };
     onSubmit(submitData);
     setFormData({
@@ -440,17 +443,12 @@ const CreateStaffModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
       department: '',
       hireDate: new Date().toISOString().split('T')[0],
       bio: '',
-      skills: []
+      skillsText: ''
     });
   };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSkillsChange = (e) => {
-    const skills = e.target.value.split('\n').filter(skill => skill.trim() !== '');
-    setFormData({ ...formData, skills });
   };
 
   return (
@@ -538,12 +536,17 @@ const CreateStaffModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
             Skills (one per line)
           </label>
           <textarea
-            placeholder="Enter skills, one per line"
-            rows="3"
-            value={formData.skills.join('\n')}
-            onChange={handleSkillsChange}
-            className="input-field"
+            name="skillsText"
+            placeholder="Enter skills, one per line&#10;Example:&#10;Leadership&#10;Project Management&#10;Strategic Planning"
+            rows="4"
+            value={formData.skillsText}
+            onChange={handleChange}
+            className="input-field resize-none"
+            style={{ whiteSpace: 'pre-wrap' }}
           />
+          <p className="text-xs text-gray-500 mt-1">
+            Press Enter to create new lines. Each line will become a separate skill.
+          </p>
         </div>
         
         <textarea
@@ -578,7 +581,7 @@ const EditStaffModal = ({ isOpen, onClose, onSubmit, staff, isLoading }) => {
     department: '',
     hireDate: '',
     bio: '',
-    skills: [],
+    skillsText: '',
     isActive: true
   });
 
@@ -593,7 +596,7 @@ const EditStaffModal = ({ isOpen, onClose, onSubmit, staff, isLoading }) => {
         department: staff.department || '',
         hireDate: staff.hireDate ? staff.hireDate.split('T')[0] : '',
         bio: staff.bio || '',
-        skills: staff.skills || [],
+        skillsText: (staff.skills || []).join('\n'),
         isActive: staff.isActive !== undefined ? staff.isActive : true
       });
     }
@@ -603,7 +606,10 @@ const EditStaffModal = ({ isOpen, onClose, onSubmit, staff, isLoading }) => {
     e.preventDefault();
     const submitData = {
       ...formData,
-      skills: formData.skills.filter(skill => skill.trim() !== '')
+      skills: formData.skillsText
+        .split('\n')
+        .map(skill => skill.trim())
+        .filter(skill => skill !== '')
     };
     onSubmit(submitData);
   };
@@ -614,11 +620,6 @@ const EditStaffModal = ({ isOpen, onClose, onSubmit, staff, isLoading }) => {
       ...formData, 
       [name]: type === 'checkbox' ? checked : value 
     });
-  };
-
-  const handleSkillsChange = (e) => {
-    const skills = e.target.value.split('\n').filter(skill => skill.trim() !== '');
-    setFormData({ ...formData, skills });
   };
 
   if (!staff) return null;
@@ -708,12 +709,17 @@ const EditStaffModal = ({ isOpen, onClose, onSubmit, staff, isLoading }) => {
             Skills (one per line)
           </label>
           <textarea
-            placeholder="Enter skills, one per line"
-            rows="3"
-            value={formData.skills.join('\n')}
-            onChange={handleSkillsChange}
-            className="input-field"
+            name="skillsText"
+            placeholder="Enter skills, one per line&#10;Example:&#10;Leadership&#10;Project Management&#10;Strategic Planning"
+            rows="4"
+            value={formData.skillsText}
+            onChange={handleChange}
+            className="input-field resize-none"
+            style={{ whiteSpace: 'pre-wrap' }}
           />
+          <p className="text-xs text-gray-500 mt-1">
+            Press Enter to create new lines. Each line will become a separate skill.
+          </p>
         </div>
         
         <textarea

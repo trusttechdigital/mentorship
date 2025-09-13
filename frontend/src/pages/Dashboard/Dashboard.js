@@ -1,11 +1,24 @@
 import React from 'react';
+import { useQuery } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Users, BookOpen, FileText, DollarSign, Package } from 'lucide-react';
+import { Users, BookOpen, FileText, DollarSign, Package, Clock, TrendingUp, AlertTriangle } from 'lucide-react';
+import { apiClient } from '../../services/api';
+import LoadingSpinner from '../../components/UI/LoadingSpinner';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Fetch dashboard stats from backend
+  const { data: dashboardData, isLoading, error } = useQuery(
+    'dashboard-stats',
+    () => apiClient.get('/dashboard/stats'),
+    {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    }
+  );
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -14,10 +27,126 @@ const Dashboard = () => {
     return 'Good evening';
   };
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-6 text-white">
+          <h1 className="text-2xl font-bold mb-2">
+            {getGreeting()}, {user?.firstName}!
+          </h1>
+          <p className="text-blue-100">
+            Loading your dashboard data...
+          </p>
+        </div>
+        <LoadingSpinner size="large" className="py-12" />
+      </div>
+    );
+  }
+
+  // Error state - backend not available
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-6 text-white">
+          <h1 className="text-2xl font-bold mb-2">
+            {getGreeting()}, {user?.firstName}!
+          </h1>
+          <p className="text-blue-100">
+            Welcome to your mentorship portal dashboard.
+          </p>
+        </div>
+
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <AlertTriangle className="h-5 w-5 text-yellow-400" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                <strong>Backend Connection Required:</strong> Unable to load dashboard statistics. 
+                Please ensure your backend server is running and accessible.
+              </p>
+              <p className="text-sm text-yellow-700 mt-1">
+                Expected endpoint: <code>/api/dashboard/stats</code>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
+          <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Mock Data</h3>
+          <p className="text-gray-600 mb-4">
+            This dashboard displays real data from your backend API only.
+            Start your backend server to see live statistics.
+          </p>
+          <div className="text-sm text-gray-500 space-y-1">
+            <p>Expected data: Active staff, mentees, documents, invoices, and inventory</p>
+            <p>API Health Check: <code>GET /api/health</code></p>
+          </div>
+        </div>
+
+        {/* Quick Actions - Even when backend is down */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button 
+              onClick={() => navigate('/staff')}
+              className="flex items-center justify-start px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              <Users className="w-4 h-4 mr-2" />
+              Manage Staff
+            </button>
+            <button 
+              onClick={() => navigate('/mentees')}
+              className="flex items-center justify-start px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+            >
+              <BookOpen className="w-4 h-4 mr-2" />
+              Manage Mentees
+            </button>
+            <button 
+              onClick={() => navigate('/invoices')}
+              className="flex items-center justify-start px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
+            >
+              <DollarSign className="w-4 h-4 mr-2" />
+              Review Invoices
+            </button>
+            <button 
+              onClick={() => navigate('/stock')}
+              className="flex items-center justify-start px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+            >
+              <Package className="w-4 h-4 mr-2" />
+              Check Inventory
+            </button>
+            <button 
+              onClick={() => navigate('/documents')}
+              className="flex items-center justify-start px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              View Documents
+            </button>
+            <button 
+              onClick={() => navigate('/receipts')}
+              className="flex items-center justify-start px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+            >
+              <Clock className="w-4 h-4 mr-2" />
+              Manage Receipts
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Success state - render with real backend data
+  const stats = dashboardData?.stats || {};
+  const recentActivity = dashboardData?.recentActivity || {};
+
   const dashboardCards = [
     {
       title: 'Staff Members',
-      value: '8',
+      value: stats.totalStaff || 0,
       description: 'Active mentors & admins',
       icon: Users,
       color: 'bg-green-50 border-green-200',
@@ -25,7 +154,7 @@ const Dashboard = () => {
     },
     {
       title: 'Total Mentees',
-      value: '24',
+      value: stats.activeMentees || 0,
       description: 'Enrolled students',
       icon: BookOpen,
       color: 'bg-purple-50 border-purple-200',
@@ -33,7 +162,7 @@ const Dashboard = () => {
     },
     {
       title: 'Shared Documents',
-      value: '12',
+      value: stats.totalDocuments || 0,
       description: 'Available resources',
       icon: FileText,
       color: 'bg-blue-50 border-blue-200',
@@ -41,46 +170,29 @@ const Dashboard = () => {
     },
     {
       title: 'Pending Invoices',
-      value: '5',
+      value: stats.pendingInvoices || 0,
       description: 'Awaiting payment',
       icon: DollarSign,
       color: 'bg-yellow-50 border-yellow-200',
       iconColor: 'text-yellow-600'
     },
     {
-      title: 'Stock Items',
-      value: '156',
-      description: 'Inventory tracked',
+      title: 'Low Stock Items',
+      value: stats.lowStockItems || 0,
+      description: 'Need restocking',
       icon: Package,
       color: 'bg-red-50 border-red-200',
       iconColor: 'text-red-600'
+    },
+    {
+      title: 'Pending Receipts',
+      value: stats.pendingReceipts || 0,
+      description: 'Awaiting review',
+      icon: Clock,
+      color: 'bg-orange-50 border-orange-200',
+      iconColor: 'text-orange-600'
     }
   ];
-
-  // Quick action handlers
-  const handleManageStaff = () => {
-    navigate('/staff');
-  };
-
-  const handleReviewInvoices = () => {
-    navigate('/invoices');
-  };
-
-  const handleCheckInventory = () => {
-    navigate('/stock');
-  };
-
-  const handleManageMentees = () => {
-    navigate('/mentees');
-  };
-
-  const handleViewDocuments = () => {
-    navigate('/documents');
-  };
-
-  const handleManageReceipts = () => {
-    navigate('/receipts');
-  };
 
   return (
     <div className="space-y-6">
@@ -90,14 +202,18 @@ const Dashboard = () => {
           {getGreeting()}, {user?.firstName}!
         </h1>
         <p className="text-blue-100">
-          Welcome to your mentorship portal dashboard. Here's what's happening today.
+          Welcome to your mentorship portal dashboard.
         </p>
+        <div className="mt-2 text-sm text-blue-200">
+          <TrendingUp className="inline w-4 h-4 mr-1" />
+          Live data from your backend system
+        </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {dashboardCards.map((card, index) => (
-          <div key={index} className={`p-6 bg-white rounded-lg border-2 ${card.color} hover:shadow-lg transition-shadow cursor-pointer`}>
+          <div key={index} className={`p-6 bg-white rounded-lg border-2 ${card.color}`}>
             <div className="flex items-center">
               <card.icon className={`w-8 h-8 ${card.iconColor}`} />
               <div className="ml-3">
@@ -115,53 +231,48 @@ const Dashboard = () => {
       {/* Quick Actions */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button 
-            onClick={handleManageStaff}
-            className="flex items-center justify-start px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-sm"
+            onClick={() => navigate('/staff')}
+            className="flex items-center justify-start px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
-            <Users className="w-5 h-5 mr-3" />
-            <span className="font-medium">Manage Staff</span>
+            <Users className="w-4 h-4 mr-2" />
+            Manage Staff
           </button>
-          
           <button 
-            onClick={handleManageMentees}
-            className="flex items-center justify-start px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors shadow-sm"
+            onClick={() => navigate('/mentees')}
+            className="flex items-center justify-start px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
           >
-            <BookOpen className="w-5 h-5 mr-3" />
-            <span className="font-medium">Manage Mentees</span>
+            <BookOpen className="w-4 h-4 mr-2" />
+            Manage Mentees
           </button>
-          
           <button 
-            onClick={handleReviewInvoices}
-            className="flex items-center justify-start px-4 py-3 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors shadow-sm"
+            onClick={() => navigate('/invoices')}
+            className="flex items-center justify-start px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
           >
-            <DollarSign className="w-5 h-5 mr-3" />
-            <span className="font-medium">Review Invoices</span>
+            <DollarSign className="w-4 h-4 mr-2" />
+            Review Invoices
           </button>
-          
           <button 
-            onClick={handleCheckInventory}
-            className="flex items-center justify-start px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors shadow-sm"
+            onClick={() => navigate('/stock')}
+            className="flex items-center justify-start px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
           >
-            <Package className="w-5 h-5 mr-3" />
-            <span className="font-medium">Check Inventory</span>
+            <Package className="w-4 h-4 mr-2" />
+            Check Inventory
           </button>
-          
           <button 
-            onClick={handleViewDocuments}
-            className="flex items-center justify-start px-4 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors shadow-sm"
+            onClick={() => navigate('/documents')}
+            className="flex items-center justify-start px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
-            <FileText className="w-5 h-5 mr-3" />
-            <span className="font-medium">View Documents</span>
+            <FileText className="w-4 h-4 mr-2" />
+            View Documents
           </button>
-          
           <button 
-            onClick={handleManageReceipts}
-            className="flex items-center justify-start px-4 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors shadow-sm"
+            onClick={() => navigate('/receipts')}
+            className="flex items-center justify-start px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
           >
-            <Package className="w-5 h-5 mr-3" />
-            <span className="font-medium">Manage Receipts</span>
+            <Clock className="w-4 h-4 mr-2" />
+            Manage Receipts
           </button>
         </div>
       </div>
@@ -169,58 +280,60 @@ const Dashboard = () => {
       {/* Recent Activity */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>
-        <div className="space-y-3">
-          <div className="flex items-center space-x-3 text-sm p-3 bg-gray-50 rounded-lg">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span className="text-gray-600">System backup completed</span>
-            <span className="text-gray-400">• 2 hours ago</span>
+        
+        {/* Show loading state for activity */}
+        {(!recentActivity.newMentees && !recentActivity.newDocuments && !recentActivity.pendingInvoices) ? (
+          <div className="space-y-3">
+            <div className="flex items-center space-x-3 text-sm">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span className="text-gray-600">Loading recent activity...</span>
+            </div>
           </div>
-          <div className="flex items-center space-x-3 text-sm p-3 bg-gray-50 rounded-lg">
-            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-            <span className="text-gray-600">New invoice created by Test Admin</span>
-            <span className="text-gray-400">• 4 hours ago</span>
-          </div>
-          <div className="flex items-center space-x-3 text-sm p-3 bg-gray-50 rounded-lg">
-            <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-            <span className="text-gray-600">Document uploaded to shared folder</span>
-            <span className="text-gray-400">• 1 day ago</span>
-          </div>
-          <div className="flex items-center space-x-3 text-sm p-3 bg-gray-50 rounded-lg">
-            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-            <span className="text-gray-600">Invoice payment received</span>
-            <span className="text-gray-400">• 3 days ago</span>
-          </div>
-        </div>
-      </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Recent Mentees */}
+            {recentActivity.newMentees?.map((mentee, index) => (
+              <div key={index} className="flex items-center space-x-3 text-sm">
+                <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
+                <span className="text-gray-900">
+                  New mentee: {mentee.firstName} {mentee.lastName}
+                </span>
+                <span className="text-gray-400">
+                  • {mentee.mentor?.firstName} {mentee.mentor?.lastName}
+                </span>
+              </div>
+            ))}
 
-      {/* System Status */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">System Status</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center p-4 bg-green-50 rounded-lg">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-            </div>
-            <p className="text-sm font-medium text-green-800">All Systems Operational</p>
-            <p className="text-xs text-green-600">Last checked: Just now</p>
+            {/* Recent Documents */}
+            {recentActivity.newDocuments?.map((doc, index) => (
+              <div key={index} className="flex items-center space-x-3 text-sm">
+                <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                <span className="text-gray-900">
+                  Document uploaded: {doc.title}
+                </span>
+              </div>
+            ))}
+
+            {/* Pending Invoices */}
+            {recentActivity.pendingInvoices?.map((invoice, index) => (
+              <div key={index} className="flex items-center space-x-3 text-sm">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full flex-shrink-0"></div>
+                <span className="text-gray-900">
+                  Pending invoice: {invoice.vendor} - ${parseFloat(invoice.amount).toFixed(2)}
+                </span>
+              </div>
+            ))}
+
+            {/* Show message if no activity */}
+            {(!recentActivity.newMentees?.length && !recentActivity.newDocuments?.length && !recentActivity.pendingInvoices?.length) && (
+              <div className="text-center py-4 text-gray-500">
+                <Clock className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                <p>No recent activity to display</p>
+                <p className="text-sm">Activity will appear here as users interact with the system</p>
+              </div>
+            )}
           </div>
-          
-          <div className="text-center p-4 bg-blue-50 rounded-lg">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Package className="w-6 h-6 text-blue-600" />
-            </div>
-            <p className="text-sm font-medium text-blue-800">Database Connected</p>
-            <p className="text-xs text-blue-600">Response time: 45ms</p>
-          </div>
-          
-          <div className="text-center p-4 bg-purple-50 rounded-lg">
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-              <Users className="w-6 h-6 text-purple-600" />
-            </div>
-            <p className="text-sm font-medium text-purple-800">Active Users</p>
-            <p className="text-xs text-purple-600">Currently: 1 admin online</p>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

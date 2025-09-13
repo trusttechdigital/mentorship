@@ -6,11 +6,13 @@ import Login from './pages/Auth/Login';
 import Layout from './components/Layout/Layout';
 import Dashboard from './pages/Dashboard/Dashboard';
 import StaffProfiles from './pages/StaffProfiles/StaffProfiles';
-import Mentees from './pages/Mentees/Mentees'; // Use full CRUD version
+import Mentees from './pages/Mentees/Mentees';
 import Documents from './pages/Documents/Documents';
 import Receipts from './pages/Receipts/Receipts';
 import Invoices from './pages/Invoices/Invoices';
-import Inventory from './pages/Inventory/Inventory'; // Use full CRUD version
+import StockManagement from './pages/StockManagement/StockManagement';
+import Profile from './pages/Profile/Profile';
+import Settings from './pages/Settings/Settings';
 import ProtectedRoute from './components/UI/ProtectedRoute';
 
 import './App.css';
@@ -34,7 +36,9 @@ function App() {
             <Route path="documents" element={<Documents />} />
             <Route path="receipts" element={<Receipts />} />
             <Route path="invoices" element={<Invoices />} />
-            <Route path="stock" element={<Inventory />} />
+            <Route path="stock" element={<StockManagement />} />
+            <Route path="profile" element={<Profile />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
           
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

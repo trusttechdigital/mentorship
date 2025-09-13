@@ -129,4 +129,37 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
+// Update user profile
+router.put('/profile', auth, [
+  body('firstName').trim().notEmpty(),
+  body('lastName').trim().notEmpty()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { firstName, lastName } = req.body;
+
+    await req.user.update({
+      firstName,
+      lastName
+    });
+
+    res.json({
+      id: req.user.id,
+      email: req.user.email,
+      firstName: req.user.firstName,
+      lastName: req.user.lastName,
+      role: req.user.role,
+      isActive: req.user.isActive,
+      lastLogin: req.user.lastLogin
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
