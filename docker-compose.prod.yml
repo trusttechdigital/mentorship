@@ -1,3 +1,4 @@
+
 services:
   postgres:
     image: postgres:15-alpine
@@ -7,11 +8,8 @@ services:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_INITDB_ARGS: "--auth-local=trust --auth-host=scram-sha-256"
     volumes:
-      # CRITICAL: Use absolute paths in production
-      - /var/lib/mentorship/postgres:/var/lib/postgresql/data
-      - /var/lib/mentorship/backups:/backups
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - mentorship-network
     healthcheck:
@@ -19,31 +17,55 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30s
-    # Resource limits for production
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-        reservations:
-          memory: 512M
 
   backend:
-    # ... other config
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     restart: unless-stopped
-    volumes:
-      # CRITICAL: Use absolute paths in production
-      - /var/lib/mentorship/uploads:/app/uploads
-      - /var/lib/mentorship/logs:/app/logs
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+    networks:
+      - mentorship-network
     depends_on:
       postgres:
         condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mentorship-frontend-prod
+    restart: unless-stopped
+    networks:
+      - mentorship-network
+    depends_on:
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    container_name: mentorship-nginx-prod
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      - mentorship-network
+    depends_on:
+      - backend
+      - frontend
+
+volumes:
+  postgres_data:
+    driver: local
 
 networks:
   mentorship-network:

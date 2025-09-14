@@ -1,7 +1,8 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+// Set the base URL to prefix all requests with /api
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
 console.log('🔗 API Client initialized with base URL:', API_BASE_URL);
 
@@ -15,19 +16,18 @@ const axiosInstance = axios.create({
 
 axiosInstance.interceptors.request.use(
   (config) => {
-    // Only look for 'token' key (consistent with AuthContext)
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('🔑 Adding token to request:', { 
-        endpoint: config.url, 
+      console.log('🔑 Adding token to request:', {
+        endpoint: config.url,
         hasToken: !!token,
-        method: config.method?.toUpperCase()
+        method: config.method?.toUpperCase(),
       });
     } else {
       console.log('🔓 No token found for request:', {
         endpoint: config.url,
-        method: config.method?.toUpperCase()
+        method: config.method?.toUpperCase(),
       });
     }
     return config;
@@ -43,7 +43,7 @@ axiosInstance.interceptors.response.use(
     console.log('✅ API Response:', {
       endpoint: response.config.url,
       status: response.status,
-      method: response.config.method?.toUpperCase()
+      method: response.config.method?.toUpperCase(),
     });
     return response;
   },
@@ -52,19 +52,18 @@ axiosInstance.interceptors.response.use(
       endpoint: error.config?.url,
       status: error.response?.status,
       method: error.config?.method?.toUpperCase(),
-      message: error.message
+      message: error.message,
     });
 
     if (error.response?.status === 401) {
       console.log('🚫 401 Unauthorized - clearing tokens and redirecting to login');
       localStorage.removeItem('token');
       localStorage.removeItem('isLoggedIn');
-      // Only redirect if not already on login page
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -138,5 +137,5 @@ export const apiClient = {
     } catch (error) {
       throw new Error(error.response?.data?.message || error.message);
     }
-  }
+  },
 };

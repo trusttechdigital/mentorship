@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Settings as SettingsIcon, Bell, Shield, Palette, Globe, Save, Lock, Smartphone, Trash2 } from 'lucide-react';
 import PasswordChangeModal from '../../components/UI/PasswordChangeModal';
 import toast from 'react-hot-toast';
+import ToggleSwitch from '../../components/UI/ToggleSwitch'; // Import the new component
 
 const Settings = () => {
   const { user } = useAuth();
@@ -63,7 +64,7 @@ const Settings = () => {
     }
   };
 
-  // Updated debug handlers - Change Password now opens the modal
+  // Updated debug handlers
   const handleChangePassword = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -126,47 +127,27 @@ const Settings = () => {
           </div>
           
           <div className="space-y-3">
-            <label className="flex items-center justify-between cursor-pointer">
+            <div className="flex items-center justify-between">
               <span className="text-sm text-gray-700">Email Notifications</span>
-              <div className="relative">
-                <div 
-                  onClick={() => {
-                    logClick('Email Notifications Toggle');
-                    handleSettingChange('emailNotifications', !settings.emailNotifications);
-                  }}
-                  className={`w-12 h-6 rounded-full transition-colors duration-200 cursor-pointer ${
-                    settings.emailNotifications ? 'bg-blue-600' : 'bg-gray-300'
-                  }`}
-                >
-                  <div 
-                    className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-200 ${
-                      settings.emailNotifications ? 'translate-x-6' : 'translate-x-1'
-                    } translate-y-0.5`}
-                  />
-                </div>
-              </div>
-            </label>
+              <ToggleSwitch
+                checked={settings.emailNotifications}
+                onChange={() => {
+                  logClick('Email Notifications Toggle');
+                  handleSettingChange('emailNotifications', !settings.emailNotifications);
+                }}
+              />
+            </div>
             
-            <label className="flex items-center justify-between cursor-pointer">
+            <div className="flex items-center justify-between">
               <span className="text-sm text-gray-700">Push Notifications</span>
-              <div className="relative">
-                <div 
-                  onClick={() => {
-                    logClick('Push Notifications Toggle');
-                    handleSettingChange('pushNotifications', !settings.pushNotifications);
-                  }}
-                  className={`w-12 h-6 rounded-full transition-colors duration-200 cursor-pointer ${
-                    settings.pushNotifications ? 'bg-blue-600' : 'bg-gray-300'
-                  }`}
-                >
-                  <div 
-                    className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-200 ${
-                      settings.pushNotifications ? 'translate-x-6' : 'translate-x-1'
-                    } translate-y-0.5`}
-                  />
-                </div>
-              </div>
-            </label>
+              <ToggleSwitch
+                checked={settings.pushNotifications}
+                onChange={() => {
+                  logClick('Push Notifications Toggle');
+                  handleSettingChange('pushNotifications', !settings.pushNotifications);
+                }}
+              />
+            </div>
           </div>
         </div>
 
@@ -178,26 +159,16 @@ const Settings = () => {
           </div>
           
           <div className="space-y-3">
-            <label className="flex items-center justify-between cursor-pointer">
-              <span className="text-sm text-gray-700">Dark Mode</span>
-              <div className="relative">
-                <div 
-                  onClick={() => {
+            <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-700">Dark Mode</span>
+                <ToggleSwitch
+                  checked={settings.darkMode}
+                  onChange={() => {
                     logClick('Dark Mode Toggle');
                     handleSettingChange('darkMode', !settings.darkMode);
                   }}
-                  className={`w-12 h-6 rounded-full transition-colors duration-200 cursor-pointer ${
-                    settings.darkMode ? 'bg-blue-600' : 'bg-gray-300'
-                  }`}
-                >
-                  <div 
-                    className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-200 ${
-                      settings.darkMode ? 'translate-x-6' : 'translate-x-1'
-                    } translate-y-0.5`}
-                  />
-                </div>
-              </div>
-            </label>
+                />
+            </div>
           </div>
         </div>
 
@@ -256,7 +227,6 @@ const Settings = () => {
           </div>
           
           <div className="space-y-3">
-            {/* METHOD 1: Change Password - Now opens actual modal */}
             <button 
               onClick={handleChangePassword}
               className="w-full flex items-center justify-start px-4 py-3 text-sm text-gray-700 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer"
@@ -265,7 +235,6 @@ const Settings = () => {
               Change Password (Opens Modal)
             </button>
             
-            {/* METHOD 2: Button with onMouseDown for immediate response */}
             <button 
               onMouseDown={handleTwoFactorAuth}
               className="w-full flex items-center justify-start px-4 py-3 text-sm text-gray-700 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors border border-gray-200 cursor-pointer"
@@ -274,7 +243,6 @@ const Settings = () => {
               Two-Factor Authentication (Method 2)
             </button>
             
-            {/* METHOD 3: Div with onClick for testing */}
             <div 
               onClick={handleDeleteAccount}
               className="w-full flex items-center justify-start px-4 py-3 text-sm text-red-600 bg-red-50 rounded-md hover:bg-red-100 transition-colors border border-red-200 cursor-pointer"
@@ -283,7 +251,6 @@ const Settings = () => {
               Delete Account (Method 3)
             </div>
 
-            {/* METHOD 4: Direct inline handler */}
             <button 
               onClick={() => {
                 logClick('Test Button');
