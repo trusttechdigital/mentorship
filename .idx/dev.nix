@@ -1,29 +1,21 @@
 { pkgs, ... }: {
   channel = "stable-24.05";
-  packages = [ pkgs.nodejs_20 ];
+  packages = [ pkgs.nodejs_20 pkgs.postgresql ];
+
+  services.postgres.enable = true;
+
   idx = {
-    extensions = [];
     workspace = {
       onCreate = {
         install-deps = "npm install --prefix backend && npm install --prefix frontend";
       };
       onStart = {
-        backend = {
-          command = "npm start --prefix backend";
-          onExit = "restart";
-        };
+        backend = "npm start --prefix backend";
+        frontend = "npm start --prefix frontend";
       };
     };
     previews = {
       enable = true;
-      previews = [
-        {
-          id = "web";
-          command = ["npm" "start" "--prefix" "frontend"];
-          port = 3000;
-          onOpen = "open";
-        }
-      ];
     };
   };
 }
