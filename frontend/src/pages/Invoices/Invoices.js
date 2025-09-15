@@ -232,7 +232,7 @@ const Invoices = () => {
 };
 
 const InvoiceFormModal = ({ isOpen, onClose, onSubmit, invoice, isLoading }) => (
-  <Modal isOpen={isOpen} onClose={onClose} title={invoice ? 'Edit Invoice' : 'Create New Invoice'} size="3xl">
+  <Modal isOpen={isOpen} onClose={onClose} title={invoice ? 'Edit Invoice' : 'Create New Invoice'} size="xxlarge">
     <InvoiceForm
       onSubmit={onSubmit}
       onCancel={onClose}
@@ -248,7 +248,7 @@ const ViewInvoiceModal = ({ isOpen, onClose, invoice, onStatusUpdate, isUpdating
   const canUpdateStatus = invoice.status === 'pending';
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Invoice ${invoice.invoiceNumber}`} size="2xl">
+    <Modal isOpen={isOpen} onClose={onClose} title={`Invoice ${invoice.invoiceNumber}`} size="xxlarge">
       <div className="space-y-6">
         <div className="flex justify-between items-start">
           <div>

@@ -132,13 +132,13 @@ const Receipts = () => {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="th-cell">Receipt</th>
-              <th className="th-cell">Vendor</th>
-              <th className="th-cell">Total</th>
-              <th className="th-cell">Category</th>
-              <th className="th-cell">Date</th>
-              <th className="th-cell">Status</th>
-              <th className="th-cell">Actions</th>
+              <th className="th-cell text-left">Receipt</th>
+              <th className="th-cell text-left">Vendor</th>
+              <th className="th-cell text-left">Total</th>
+              <th className="th-cell text-left">Category</th>
+              <th className="th-cell text-left">Date</th>
+              <th className="th-cell text-left">Status</th>
+              <th className="th-cell text-left">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -212,7 +212,7 @@ const Receipts = () => {
 };
 
 const ReceiptFormModal = ({ isOpen, onClose, onSubmit, receipt, isLoading }) => (
-  <Modal isOpen={isOpen} onClose={onClose} title={receipt ? 'Edit Receipt' : 'Create New Receipt'} size="3xl">
+  <Modal isOpen={isOpen} onClose={onClose} title={receipt ? 'Edit Receipt' : 'Create New Receipt'} size="xxlarge">
     <ReceiptForm
       onSubmit={onSubmit}
       onCancel={onClose}
@@ -228,7 +228,7 @@ const ViewReceiptModal = ({ isOpen, onClose, receipt, onStatusUpdate, isUpdating
   const canUpdateStatus = receipt.status === 'pending';
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Receipt ${receipt.receiptNumber}`} size="2xl">
+    <Modal isOpen={isOpen} onClose={onClose} title={`Receipt ${receipt.receiptNumber}`} size="xxlarge">
       <div className="space-y-6">
         <div className="flex justify-between items-start">
           <div>

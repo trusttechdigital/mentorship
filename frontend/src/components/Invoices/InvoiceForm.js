@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const InvoiceForm = ({ onSubmit, onCancel, initialData, isLoading }) => {
@@ -7,6 +7,7 @@ const InvoiceForm = ({ onSubmit, onCancel, initialData, isLoading }) => {
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState('pending');
+  const [file, setFile] = useState(null);
   const [lineItems, setLineItems] = useState([{
     description: '',
     quantity: 1,
@@ -49,6 +50,10 @@ const InvoiceForm = ({ onSubmit, onCancel, initialData, isLoading }) => {
     const updatedLineItems = lineItems.filter((_, i) => i !== index);
     setLineItems(updatedLineItems);
   };
+  
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -58,7 +63,21 @@ const InvoiceForm = ({ onSubmit, onCancel, initialData, isLoading }) => {
     if (lineItems.some(item => !item.description || !item.quantity || !item.unitPrice)) {
       return toast.error('Please complete all line item fields.');
     }
-    onSubmit({ vendor, issueDate, dueDate, status, lineItems, subtotal, vat, total });
+    
+    const formData = new FormData();
+    formData.append('vendor', vendor);
+    formData.append('issueDate', issueDate);
+    formData.append('dueDate', dueDate);
+    formData.append('status', status);
+    formData.append('lineItems', JSON.stringify(lineItems));
+    formData.append('subtotal', subtotal);
+    formData.append('vat', vat);
+    formData.append('total', total);
+    if (file) {
+      formData.append('file', file);
+    }
+
+    onSubmit(formData);
   };
 
   return (
@@ -76,6 +95,25 @@ const InvoiceForm = ({ onSubmit, onCancel, initialData, isLoading }) => {
           <option value="cancelled">Cancelled</option>
         </select>
       </div>
+
+      <div className="space-y-4">
+          <label htmlFor="file-upload" className="block text-sm font-medium text-gray-700">Invoice Document</label>
+          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+              <div className="space-y-1 text-center">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                  <div className="flex text-sm text-gray-600">
+                      <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+                          <span>Upload a file</span>
+                          <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} />
+                      </label>
+                      <p className="pl-1">or drag and drop</p>
+                  </div>
+                  <p className="text-xs text-gray-500">PNG, JPG, PDF up to 10MB</p>
+              </div>
+          </div>
+          {file && <p className="text-sm text-gray-500">Selected file: {file.name}</p>}
+      </div>
+
 
       <div className="space-y-4">
         <h3 className="text-lg font-medium text-gray-800">Line Items</h3>

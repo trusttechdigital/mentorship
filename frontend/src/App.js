@@ -13,6 +13,7 @@ import Invoices from './pages/Invoices/Invoices';
 import StockManagement from './pages/StockManagement/StockManagement';
 import Profile from './pages/Profile/Profile';
 import Settings from './pages/Settings/Settings';
+import SearchResults from './pages/Search/SearchResults';
 import ProtectedRoute from './components/UI/ProtectedRoute';
 
 import './App.css';
@@ -39,6 +40,7 @@ function App() {
             <Route path="stock" element={<StockManagement />} />
             <Route path="profile" element={<Profile />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="search" element={<SearchResults />} />
           </Route>
           
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

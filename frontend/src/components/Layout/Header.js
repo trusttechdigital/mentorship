@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { 
   Search, 
   Bell, 
@@ -10,15 +11,37 @@ import {
   X
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { apiClient } from '../../services/api';
+import toast from 'react-hot-toast';
 
 const Header = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  const { data: notificationsData, isLoading: isLoadingNotifications } = useQuery(
+    'notifications',
+    () => apiClient.get('/notifications')
+  );
+  const notifications = notificationsData?.notifications || [];
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const markAsReadMutation = useMutation(
+    (notificationId) => apiClient.patch(`/notifications/${notificationId}/read`),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('notifications');
+      },
+      onError: (error) => {
+        toast.error(error.message || 'Failed to mark as read');
+      },
+    }
+  );
 
   const handleLogout = () => {
     logout();
@@ -27,14 +50,20 @@ const Header = () => {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    console.log('Searching for:', searchTerm);
-    // TODO: Implement actual search functionality
+    if (searchTerm.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchTerm.trim())}`);
+      setSearchTerm('');
+    }
   };
 
-  const handleNotifications = () => {
-    setShowNotifications(!showNotifications);
-    // TODO: Mark notifications as read, fetch from backend
+  const handleMarkAsRead = (id) => {
+    markAsReadMutation.mutate(id);
   };
+  
+  const handleMarkAllAsRead = () => {
+    // This would be a new mutation, for now, we can do it one by one.
+    console.log("Mark all as read functionality to be implemented");
+  }
 
   const handleSettings = () => {
     navigate('/settings');
@@ -59,11 +88,6 @@ const Header = () => {
     return location.pathname === path;
   };
 
-  // Real notifications from backend (placeholder - should come from API)
-  const notifications = [
-    // These should be loaded from your backend API
-  ];
-
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -81,7 +105,6 @@ const Header = () => {
               )}
             </button>
             
-            {/* Just the title, no logo */}
             <div className="ml-4 md:ml-0">
               <h1 className="text-xl font-bold text-gray-900">
                 Mentorship Portal
@@ -107,41 +130,57 @@ const Header = () => {
 
           {/* Right side icons */}
           <div className="flex items-center space-x-4">
-            {/* Notifications - Now Working */}
+            {/* Notifications */}
             <div className="relative">
               <button 
-                onClick={handleNotifications}
+                onClick={() => setShowNotifications(!showNotifications)}
                 className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-full relative transition-colors"
               >
                 <Bell className="h-6 w-6" />
-                {notifications.length > 0 && (
+                {unreadCount > 0 && (
                   <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-teal-500 ring-2 ring-white"></span>
                 )}
               </button>
 
               {/* Notifications Dropdown */}
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200 max-h-96 overflow-y-auto">
-                  <div className="px-4 py-2 border-b border-gray-100">
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg z-50 border border-gray-200 max-h-96 flex flex-col">
+                  <div className="px-4 py-2 border-b border-gray-100 flex justify-between items-center">
                     <h3 className="text-sm font-medium text-gray-900">Notifications</h3>
+                    {unreadCount > 0 && 
+                        <button onClick={handleMarkAllAsRead} className='text-xs text-teal-600 hover:underline'>Mark all as read</button>
+                    }
                   </div>
-                  {notifications.length === 0 ? (
+                  <div className='overflow-y-auto'>
+                  {isLoadingNotifications ? (
+                    <div className="px-4 py-6 text-center text-sm text-gray-500">Loading...</div>
+                  ) : notifications.length === 0 ? (
                     <div className="px-4 py-6 text-center text-sm text-gray-500">
                       No new notifications
                     </div>
                   ) : (
-                    notifications.map((notification, index) => (
-                      <div key={index} className="px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-b-0">
+                    notifications.map((notification) => (
+                      <div key={notification.id} className={`px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-b-0 ${!notification.isRead ? 'bg-teal-50' : ''}`}>
                         <p className="text-sm text-gray-900">{notification.message}</p>
-                        <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                        <p className="text-xs text-gray-500 mt-1">{new Date(notification.createdAt).toLocaleString()}</p>
+                        {!notification.isRead && (
+                            <button
+                                onClick={() => handleMarkAsRead(notification.id)}
+                                className="text-xs text-teal-600 hover:underline mt-1"
+                                disabled={markAsReadMutation.isLoading}
+                            >
+                                Mark as read
+                            </button>
+                        )}
                       </div>
                     ))
                   )}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Settings - Now Working */}
+            {/* Settings */}
             <button 
               onClick={handleSettings}
               className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-full transition-colors"
@@ -149,7 +188,7 @@ const Header = () => {
               <Settings className="h-6 w-6" />
             </button>
 
-            {/* User Menu - Now Working */}
+            {/* User Menu */}
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
@@ -170,7 +209,7 @@ const Header = () => {
                 </div>
               </button>
 
-              {/* User Dropdown - Now Working */}
+              {/* User Dropdown */}
               {showUserMenu && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
                   <button

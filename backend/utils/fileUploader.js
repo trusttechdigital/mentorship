@@ -54,4 +54,28 @@ const uploadToSpaces = async (file) => {
     }
 };
 
-module.exports = { upload, uploadToSpaces };
+/**
+ * Deletes a file from Digital Ocean Spaces.
+ * @param {string} fileKey The Key of the file to delete.
+ */
+const deleteFromSpaces = async (fileKey) => {
+    if (!s3 || !bucketName) {
+        console.error('S3 is not configured. File deletion is disabled.');
+        // Depending on desired strictness, you might throw an error
+        return; 
+    }
+
+    const params = {
+        Bucket: bucketName,
+        Key: fileKey,
+    };
+
+    try {
+        await s3.deleteObject(params).promise();
+    } catch (error) {
+        console.error('Error in S3 deletion: ', error);
+        // Depending on desired strictness, you might throw an error
+    }
+};
+
+module.exports = { upload, uploadToSpaces, deleteFromSpaces };
