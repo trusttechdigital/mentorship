@@ -14,10 +14,6 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false
     },
-    amount: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: false
-    },
     issueDate: {
       type: DataTypes.DATE,
       allowNull: false
@@ -26,11 +22,26 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DATE,
       allowNull: false
     },
+    subtotal: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0.00
+    },
+    vat: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0.00
+    },
+    total: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0.00
+    },
     paidDate: {
       type: DataTypes.DATE
     },
     status: {
-      type: DataTypes.ENUM('pending', 'paid', 'overdue', 'cancelled'),
+      type: DataTypes.ENUM('pending', 'paid', 'overdue', 'cancelled', 'approved', 'rejected'),
       defaultValue: 'pending'
     },
     description: {
@@ -48,11 +59,25 @@ module.exports = (sequelize, DataTypes) => {
     },
     notes: {
       type: DataTypes.TEXT
+    },
+    filePath: {
+      type: DataTypes.STRING
+    },
+    fileKey: {
+      type: DataTypes.STRING
     }
   }, {
     timestamps: true,
     tableName: 'invoices'
   });
+
+  Invoice.associate = (models) => {
+    Invoice.hasMany(models.InvoiceItem, {
+      foreignKey: 'invoiceId',
+      as: 'lineItems',
+      onDelete: 'CASCADE',
+    });
+  };
 
   return Invoice;
 };

@@ -4,6 +4,8 @@ const { body, validationResult } = require('express-validator');
 const { Mentee, Staff } = require('../models');
 const { auth, authorize } = require('../middleware/auth');
 const auditLog = require('../middleware/audit');
+const { upload, uploadToSpaces } = require('../utils/fileUploader');
+const { sequelize } = require('../models'); // Import sequelize for transactions
 
 const router = express.Router();
 
@@ -40,7 +42,7 @@ router.get('/', auth, async (req, res) => {
       total: count
     });
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching mentees:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -58,7 +60,7 @@ router.get('/:id', auth, async (req, res) => {
 
     res.json(mentee);
   } catch (error) {
-    console.error(error);
+    console.error(`Error fetching mentee ${req.params.id}:`, error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -68,25 +70,28 @@ router.post('/', [
   auth,
   authorize(['admin', 'coordinator']),
   auditLog('CREATE', 'mentee'),
-  body('firstName').trim().notEmpty(),
-  body('lastName').trim().notEmpty(),
-  body('email').isEmail().normalizeEmail(),
-  body('programStartDate').isISO8601()
+  body('firstName').trim().notEmpty().withMessage('First name is required.'),
+  body('lastName').trim().notEmpty().withMessage('Last name is required.'),
+  body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('A valid email is required.'),
 ], async (req, res) => {
+  const t = await sequelize.transaction();
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const mentee = await Mentee.create(req.body);
+    const mentee = await Mentee.create(req.body, { transaction: t });
+    await t.commit();
+    
     const fullMentee = await Mentee.findByPk(mentee.id, {
       include: [{ model: Staff, as: 'mentor' }]
     });
     
     res.status(201).json(fullMentee);
   } catch (error) {
-    console.error(error);
+    await t.rollback();
+    console.error('Error creating mentee:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -97,22 +102,74 @@ router.put('/:id', [
   authorize(['admin', 'coordinator']),
   auditLog('UPDATE', 'mentee')
 ], async (req, res) => {
+  const t = await sequelize.transaction();
   try {
-    const [updated] = await Mentee.update(req.body, {
-      where: { id: req.params.id }
-    });
-
-    if (!updated) {
+    const mentee = await Mentee.findByPk(req.params.id, { transaction: t });
+    if (!mentee) {
+      await t.rollback();
       return res.status(404).json({ message: 'Mentee not found' });
     }
 
-    const mentee = await Mentee.findByPk(req.params.id, {
+    // Fix for empty dateOfBirth
+    if (req.body.dateOfBirth === '') {
+      req.body.dateOfBirth = null;
+    }
+
+    await mentee.update(req.body, { transaction: t });
+    await t.commit();
+
+    const updatedMentee = await Mentee.findByPk(req.params.id, {
       include: [{ model: Staff, as: 'mentor' }]
     });
-    res.json(mentee);
+    res.json(updatedMentee);
   } catch (error) {
-    console.error(error);
+    await t.rollback();
+    console.error(`Error updating mentee ${req.params.id}:`, error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Upload mentee photo
+router.post('/:id/upload-photo', [
+  auth,
+  authorize(['admin', 'coordinator']),
+  upload.single('photo'),
+  auditLog('UPLOAD_PHOTO', 'mentee')
+], async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded. Please select a photo.' });
+    }
+
+    const mentee = await Mentee.findByPk(req.params.id, { transaction: t });
+    if (!mentee) {
+      await t.rollback();
+      return res.status(404).json({ message: 'Mentee not found' });
+    }
+
+    // TODO: Delete old photo from Spaces if it exists (mentee.photoFileKey)
+
+    const { fileUrl, fileKey } = await uploadToSpaces(req.file);
+
+    await mentee.update({
+      photoUrl: fileUrl,
+      photoFileKey: fileKey
+    }, { transaction: t });
+
+    await t.commit();
+
+    // Refetch the mentee to include the mentor details in the response
+    const updatedMentee = await Mentee.findByPk(mentee.id, {
+      include: [{ model: Staff, as: 'mentor' }]
+    });
+
+    res.json(updatedMentee);
+  } catch (error) {
+    await t.rollback();
+    console.error(`Error uploading photo for mentee ${req.params.id}:`, error);
+    // Send a more specific error message if available
+    res.status(500).json({ message: error.message || 'Server error during photo upload.' });
   }
 });
 
@@ -122,18 +179,23 @@ router.delete('/:id', [
   authorize(['admin']),
   auditLog('DELETE', 'mentee')
 ], async (req, res) => {
+  const t = await sequelize.transaction();
   try {
-    const deleted = await Mentee.destroy({
-      where: { id: req.params.id }
-    });
-
-    if (!deleted) {
+    const mentee = await Mentee.findByPk(req.params.id, { transaction: t });
+    if (!mentee) {
+      await t.rollback();
       return res.status(404).json({ message: 'Mentee not found' });
     }
+    
+    // TODO: Delete photo from Spaces before deleting the mentee record
+
+    await mentee.destroy({ transaction: t });
+    await t.commit();
 
     res.json({ message: 'Mentee deleted successfully' });
   } catch (error) {
-    console.error(error);
+    await t.rollback();
+    console.error(`Error deleting mentee ${req.params.id}:`, error);
     res.status(500).json({ message: 'Server error' });
   }
 });

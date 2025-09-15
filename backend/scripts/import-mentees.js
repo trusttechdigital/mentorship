@@ -1,13 +1,29 @@
 const fs = require('fs');
 const path = require('path');
 const Papa = require('papaparse');
-const { Mentee, Staff, sequelize } = require('../models');
+const { Mentee, sequelize } = require('../models');
 
-// Excel date conversion function
-const convertExcelDate = (excelDate) => {
-  if (!excelDate || isNaN(excelDate)) return null;
-  const date = new Date((excelDate - 25569) * 86400 * 1000);
-  return date.toISOString().split('T')[0]; // Return YYYY-MM-DD format
+// CORRECTED: Updated to handle DD-Mon-YYYY and other string formats
+const convertExcelDate = (dateString) => {
+  if (!dateString) return null;
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) { // Check if the date is invalid
+      // Attempt to parse numeric Excel date as a fallback
+      const excelDate = parseFloat(dateString);
+      if (!isNaN(excelDate)) {
+        const newDate = new Date((excelDate - 25569) * 86400 * 1000);
+        if (!isNaN(newDate.getTime())) {
+          return newDate.toISOString().split('T')[0];
+        }
+      }
+      return null; // Return null if parsing fails
+    } else {
+      return date.toISOString().split('T')[0]; // Return YYYY-MM-DD format
+    }
+  } catch (error) {
+    return null;
+  }
 };
 
 // Calculate age from date of birth
@@ -27,36 +43,14 @@ async function importMentees() {
   try {
     console.log('Starting mentee import process...');
     
-    // Read CSV file
-    const csvFilePath = path.join(__dirname, 'HYPE Mentee Information Sheet1.csv');
+    const csvFilePath = path.join(__dirname, 'HYPE Mentee Information - Sheet1.csv');
     const csvContent = fs.readFileSync(csvFilePath, 'utf8');
     
-    // Parse CSV
     const parseResult = Papa.parse(csvContent, {
       header: true,
       skipEmptyLines: true,
-      transformHeader: (header) => {
-        // Clean up header names
-        const headerMap = {
-          'HYPE ID': 'hypeId',
-          'COURT': 'court',
-          'PHOTO': 'photo',
-          'First Name ': 'firstName',
-          'Last Name': 'lastName',
-          'Gender': 'gender',
-          'Date of Birth ': 'dateOfBirth',
-          'Age': 'age',
-          'Offence': 'offence',
-          'Status': 'status',
-          'School/Organization': 'schoolOrganization',
-          'Form/Grade': 'formGrade',
-          'Probation Officer': 'probationOfficer',
-          'Assigned Mentor': 'assignedMentor',
-          'Start Date': 'startDate',
-          'End Date': 'endDate'
-        };
-        return headerMap[header] || header.toLowerCase().replace(/\s+/g, '');
-      }
+      // CORRECTED: Now removes spaces AND slashes from headers
+      transformHeader: (header) => header.trim().toLowerCase().replace(/[\s/]+/g, '')
     });
 
     if (parseResult.errors.length > 0) {
@@ -66,65 +60,60 @@ async function importMentees() {
 
     console.log(`Found ${parseResult.data.length} mentees in CSV`);
 
-    // Process each row
     let importedCount = 0;
     let skippedCount = 0;
 
-    for (const row of parseResult.data) {
+    for (const [index, row] of parseResult.data.entries()) {
       try {
-        // Skip empty rows
-        if (!row.firstName || !row.lastName) {
+        if (!row.firstname || !row.lastname) {
           skippedCount++;
           continue;
         }
 
-        // Convert dates
-        const dateOfBirth = row.dateOfBirth ? convertExcelDate(parseFloat(row.dateOfBirth)) : null;
-        const programStartDate = row.startDate ? convertExcelDate(parseFloat(row.startDate)) : new Date().toISOString().split('T')[0];
-        const programEndDate = row.endDate && row.endDate !== '' ? new Date(row.endDate).toISOString().split('T')[0] : null;
+        const dateOfBirth = row.dateofbirth ? convertExcelDate(row.dateofbirth) : null;
+        const programStartDate = row.startdate ? convertExcelDate(row.startdate) : new Date().toISOString().split('T')[0];
+        const programEndDate = row.enddate ? convertExcelDate(row.enddate) : null;
+        
+        // CORRECTED: Removes spaces from names when creating email to prevent validation errors
+        const emailFirstName = row.firstname.toLowerCase().trim().replace(/\s+/g, '');
+        const emailLastName = row.lastname.toLowerCase().trim().replace(/\s+/g, '');
 
-        // Create mentee data object
         const menteeData = {
-          hypeId: row.hypeId || `HYPE-${Date.now()}-${importedCount}`,
-          firstName: row.firstName.trim(),
-          lastName: row.lastName.trim(),
-          email: `${row.firstName.toLowerCase().trim()}.${row.lastName.toLowerCase().trim()}@hype.mentee.gd`,
+          hypeId: row.hypeid || `HYPE-${Date.now()}-${importedCount}`,
+          firstName: row.firstname.trim(),
+          lastName: row.lastname.trim(),
+          email: `${emailFirstName}.${emailLastName}@hype.mentee.gd`,
           court: row.court || null,
-          photoUrl: null, // Will be added manually later
+          photoUrl: null,
           gender: row.gender || null,
           dateOfBirth: dateOfBirth,
           age: dateOfBirth ? calculateAge(dateOfBirth) : (row.age ? parseInt(row.age) : null),
-          offenceType: row.offence || null, // Assuming CSV already has text values
-          schoolOrganization: row.schoolOrganization || null,
-          formGrade: row.formGrade || null,
-          probationOfficer: row.probationOfficer || null,
+          offenceType: row.offence || null,
+          schoolOrganization: row.schoolorganization || null,
+          formGrade: row.formgrade || null,
+          probationOfficer: row.probationofficer || null,
           status: row.status || 'Pending',
-          mentorId: null, // No mentors assigned initially as per requirements
+          mentorId: null,
           programStartDate: programStartDate,
           programEndDate: programEndDate,
           goals: [],
           notes: `Imported from CSV on ${new Date().toISOString().split('T')[0]}`
         };
 
-        // Check if mentee already exists
         const existingMentee = await Mentee.findOne({
           where: { hypeId: menteeData.hypeId }
         });
 
         if (existingMentee) {
-          console.log(`Mentee ${menteeData.hypeId} already exists, skipping...`);
           skippedCount++;
           continue;
         }
 
-        // Create new mentee
         await Mentee.create(menteeData);
         importedCount++;
-        
-        console.log(`Imported: ${menteeData.firstName} ${menteeData.lastName} (${menteeData.hypeId})`);
 
       } catch (error) {
-        console.error(`Error importing mentee ${row.firstName} ${row.lastName}:`, error.message);
+        console.error(`Result: FAILED on row ${index + 1}. Full Error:`, error);
         skippedCount++;
       }
     }
@@ -139,7 +128,6 @@ async function importMentees() {
   }
 }
 
-// Run the import
 if (require.main === module) {
   sequelize.authenticate()
     .then(() => importMentees())

@@ -5,7 +5,6 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
-    // Existing fields
     firstName: {
       type: DataTypes.STRING,
       allowNull: false
@@ -20,7 +19,6 @@ module.exports = (sequelize, DataTypes) => {
       unique: true,
       validate: { isEmail: true }
     },
-    // NEW CSV FIELDS
     hypeId: {
       type: DataTypes.STRING,
       unique: true,
@@ -33,6 +31,10 @@ module.exports = (sequelize, DataTypes) => {
     photoUrl: {
       type: DataTypes.STRING,
       allowNull: true // Digital Ocean Spaces URL
+    },
+    photoFileKey: {
+        type: DataTypes.STRING,
+        allowNull: true // Key for the file in Digital Ocean Spaces
     },
     gender: {
       type: DataTypes.ENUM('Male', 'Female', 'Other'),
@@ -80,12 +82,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: true
     },
-    // Update existing status field
     status: {
       type: DataTypes.ENUM('Active', 'On-Hold', 'Completed', 'Discharged', 'Pending'),
       defaultValue: 'Pending'
     },
-    // Keep existing fields
     phone: { type: DataTypes.STRING },
     mentorId: {
       type: DataTypes.UUID,

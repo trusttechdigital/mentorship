@@ -1,40 +1,10 @@
-// routes/receipts.js
 const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const { Receipt, User } = require('../models');
+const { body, validationResult } = require('express-validator');
+const { Receipt, User, ReceiptItem } = require('../models');
 const { auth, authorize } = require('../middleware/auth');
 const auditLog = require('../middleware/audit');
 
 const router = express.Router();
-
-// Configure multer for receipt uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/receipts/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  }
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|pdf/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only image and PDF files are allowed'));
-    }
-  }
-});
 
 // Get all receipts
 router.get('/', auth, async (req, res) => {
@@ -48,7 +18,10 @@ router.get('/', auth, async (req, res) => {
 
     const { count, rows } = await Receipt.findAndCountAll({
       where: whereClause,
-      include: [{ model: User, as: 'uploader', attributes: ['firstName', 'lastName'] }],
+      include: [
+        { model: User, as: 'uploader', attributes: ['firstName', 'lastName'] },
+        { model: ReceiptItem, as: 'lineItems' }
+      ],
       limit: parseInt(limit),
       offset: parseInt(offset),
       order: [['date', 'DESC']]
@@ -66,33 +39,50 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Upload receipt
-router.post('/upload', [
+// Create a new receipt
+router.post('/', [
   auth,
-  upload.single('receipt'),
-  auditLog('UPLOAD', 'receipt')
+  auditLog('CREATE', 'receipt'),
+  body('vendor').trim().notEmpty(),
+  body('date').isISO8601(),
+  body('category').notEmpty(),
+  body('lineItems').isArray({ min: 1 }),
+  body('lineItems.*.description').notEmpty(),
+  body('lineItems.*.quantity').isInt({ min: 1 }),
+  body('lineItems.*.unitPrice').isFloat({ min: 0 })
 ], async (req, res) => {
   try {
-    const { vendor, amount, date, category, description } = req.body;
-
-    if (!req.file) {
-      return res.status(400).json({ message: 'Receipt file is required' });
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
     }
 
+    const { vendor, date, category, lineItems, subtotal, vat, total } = req.body;
+
     const receipt = await Receipt.create({
-      receiptNumber: `RCP-${Date.now()}`,
       vendor,
-      amount: parseFloat(amount),
-      date: new Date(date),
+      date,
       category,
-      description,
-      filename: req.file.filename,
-      path: req.file.path,
-      uploadedBy: req.user.id
+      subtotal,
+      vat,
+      total,
+      receiptNumber: `RCP-${Date.now()}`,
+      uploadedBy: req.user.id,
+      status: 'pending'
     });
 
+    for (const item of lineItems) {
+      await ReceiptItem.create({
+        ...item,
+        receiptId: receipt.id
+      });
+    }
+
     const fullReceipt = await Receipt.findByPk(receipt.id, {
-      include: [{ model: User, as: 'uploader', attributes: ['firstName', 'lastName'] }]
+      include: [
+        { model: User, as: 'uploader', attributes: ['firstName', 'lastName'] },
+        { model: ReceiptItem, as: 'lineItems' }
+      ]
     });
 
     res.status(201).json(fullReceipt);
@@ -101,6 +91,50 @@ router.post('/upload', [
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// Update a receipt
+router.put('/:id', [
+  auth,
+  auditLog('UPDATE', 'receipt'),
+  body('vendor').trim().notEmpty(),
+  body('date').isISO8601(),
+  body('category').notEmpty(),
+  body('lineItems').isArray({ min: 1 })
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { vendor, date, category, lineItems, subtotal, vat, total } = req.body;
+    const receipt = await Receipt.findByPk(req.params.id);
+
+    if (!receipt) {
+      return res.status(404).json({ message: 'Receipt not found' });
+    }
+
+    await receipt.update({ vendor, date, category, subtotal, vat, total });
+
+    await ReceiptItem.destroy({ where: { receiptId: receipt.id } });
+    for (const item of lineItems) {
+      await ReceiptItem.create({ ...item, receiptId: receipt.id });
+    }
+
+    const fullReceipt = await Receipt.findByPk(receipt.id, {
+        include: [
+            { model: User, as: 'uploader', attributes: ['firstName', 'lastName'] },
+            { model: ReceiptItem, as: 'lineItems' }
+        ]
+    });
+
+    res.json(fullReceipt);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 
 // Approve/reject receipt
 router.patch('/:id/status', [

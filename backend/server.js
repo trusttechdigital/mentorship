@@ -18,6 +18,7 @@ const invoiceRoutes = require('./routes/invoices');
 const inventoryRoutes = require('./routes/inventory');
 const auditRoutes = require('./routes/audit');
 const dashboardRoutes = require('./routes/dashboard');
+const therapyNotesRoutes = require('./routes/therapyNotes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -64,6 +65,7 @@ app.use('/api/invoices', invoiceRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/therapy-notes', therapyNotesRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -127,7 +129,7 @@ const createInitialAdmin = async () => {
       console.log('💡 You can create an admin user manually using the register endpoint:');
       console.log('curl -X POST http://localhost:3001/api/auth/register \\');
       console.log('  -H "Content-Type: application/json" \\');
-      console.log('  -d \'{"email":"admin@mentorship.com","password":"admin123","firstName":"Admin","lastName":"User","role":"admin"}\'');
+      console.log("  -d '{\"email\":\"admin@mentorship.com\",\"password\":\"admin123\",\"firstName\":\"Admin\",\"lastName\":\"User\",\"role\":\"admin\"}'");
     }
   }
 };

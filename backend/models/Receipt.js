@@ -14,13 +14,24 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false
     },
-    amount: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: false
-    },
     date: {
       type: DataTypes.DATE,
       allowNull: false
+    },
+    subtotal: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0.00
+    },
+    vat: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0.00
+    },
+    total: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      defaultValue: 0.00
     },
     category: {
       type: DataTypes.STRING,
@@ -50,6 +61,14 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: true,
     tableName: 'receipts'
   });
+
+  Receipt.associate = (models) => {
+    Receipt.hasMany(models.LineItem, {
+      foreignKey: 'receiptId',
+      as: 'lineItems',
+      onDelete: 'CASCADE',
+    });
+  };
 
   return Receipt;
 };

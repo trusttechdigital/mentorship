@@ -2,6 +2,7 @@
 const express = require('express');
 const { Staff, Mentee, Invoice, Inventory, Receipt, Document } = require('../models');
 const { auth } = require('../middleware/auth');
+const { col } = require('sequelize');
 
 const router = express.Router();
 
@@ -10,21 +11,19 @@ router.get('/stats', auth, async (req, res) => {
   try {
     const [
       totalStaff,
-      activeMentees,
+      totalMentees,
       pendingInvoices,
       lowStockItems,
       pendingReceipts,
       totalDocuments
     ] = await Promise.all([
       Staff.count({ where: { isActive: true } }),
-      Mentee.count({ where: { status: 'active' } }),
+      Mentee.count(),
       Invoice.count({ where: { status: 'pending' } }),
       Inventory.count({
         where: {
           isActive: true,
-          [require('sequelize').Op.and]: [
-            require('sequelize').literal('quantity <= "minStock"')
-          ]
+          quantity: { [require('sequelize').Op.lte]: col('minStock') }
         }
       }),
       Receipt.count({ where: { status: 'pending' } }),
@@ -47,14 +46,14 @@ router.get('/stats', auth, async (req, res) => {
         where: { status: 'pending' },
         limit: 5,
         order: [['issueDate', 'DESC']],
-        attributes: ['vendor', 'amount', 'issueDate']
+        attributes: ['vendor', 'total', 'issueDate']
       })
     ]);
 
     res.json({
       stats: {
         totalStaff,
-        activeMentees,
+        totalMentees,
         pendingInvoices,
         lowStockItems,
         pendingReceipts,
@@ -73,3 +72,4 @@ router.get('/stats', auth, async (req, res) => {
 });
 
 module.exports = router;
+// routes/dashboard.js

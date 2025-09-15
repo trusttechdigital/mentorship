@@ -154,7 +154,7 @@ const Dashboard = () => {
     },
     {
       title: 'Total Mentees',
-      value: stats.activeMentees || 0,
+      value: stats.totalMentees || 0,
       description: 'Enrolled students',
       icon: BookOpen,
       color: 'bg-purple-50 border-purple-200',
