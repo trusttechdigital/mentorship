@@ -1,3 +1,4 @@
+// Updated StockManagement.js - Fixed API endpoints, Removed SKU column, Stacked Min/Max vertically
 import React, { useState } from 'react';
 import { Package, Plus, Search, AlertTriangle, TrendingUp, Edit, Trash2, Eye } from 'lucide-react';
 import Modal from '../../components/UI/Modal';
@@ -6,7 +7,6 @@ import toast from 'react-hot-toast';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import api from '../../services/api';
 import { formatCurrency, formatDate } from '../../utils/formatters';
-
 
 // Move getStockStatus function outside component to make it globally accessible
 const getStockStatus = (quantity, minQuantity, maxQuantity) => {
@@ -24,57 +24,61 @@ const StockManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const queryClient = useQueryClient();
 
-  const { data: stockResponse, isLoading } = useQuery(
-    ['stock', { category: categoryFilter, status: statusFilter, search: searchTerm }],
+  // FIXED: Use /inventory endpoint instead of /stock
+  const { data: inventoryResponse, isLoading } = useQuery(
+    ['inventory', { category: categoryFilter, lowStock: statusFilter === 'low', search: searchTerm }],
     () => {
       const params = new URLSearchParams();
       if (categoryFilter !== 'all') params.append('category', categoryFilter);
-      if (statusFilter !== 'all') params.append('status', statusFilter);
+      if (statusFilter === 'low') params.append('lowStock', 'true');
       if (searchTerm) params.append('search', searchTerm);
-      return api.get(`/stock?${params.toString()}`);
+      return api.get(`/inventory?${params.toString()}`);
     },
     {
       retry: false,
     }
   );
 
+  // FIXED: Use /inventory endpoint
   const createItemMutation = useMutation(
-    (data) => api.post('/stock', data),
+    (data) => api.post('/inventory', data),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('stock');
+        queryClient.invalidateQueries('inventory');
         setIsCreateModalOpen(false);
-        toast.success('Stock item created successfully');
+        toast.success('Inventory item created successfully');
       },
       onError: (error) => toast.error(error.response?.data?.message || 'Failed to create item'),
     }
   );
 
+  // FIXED: Use /inventory endpoint
   const updateItemMutation = useMutation(
-    ({ id, data }) => api.put(`/stock/${id}`, data),
+    ({ id, data }) => api.put(`/inventory/${id}`, data),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('stock');
+        queryClient.invalidateQueries('inventory');
         setIsEditModalOpen(false);
         setSelectedItem(null);
-        toast.success('Stock item updated successfully');
+        toast.success('Inventory item updated successfully');
       },
       onError: (error) => toast.error(error.response?.data?.message || 'Failed to update item'),
     }
   );
 
+  // FIXED: Use /inventory endpoint with /stock PATCH
   const restockItemMutation = useMutation(
-    ({ id, data }) => api.patch(`/stock/${id}/restock`, data),
+    ({ id, data }) => api.patch(`/inventory/${id}/stock`, data),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('stock');
+        queryClient.invalidateQueries('inventory');
         setIsRestockModalOpen(false);
         setSelectedItem(null);
         toast.success('Stock updated successfully');
@@ -83,12 +87,13 @@ const StockManagement = () => {
     }
   );
 
+  // FIXED: Use /inventory endpoint
   const deleteItemMutation = useMutation(
-    (id) => api.delete(`/stock/${id}`),
+    (id) => api.delete(`/inventory/${id}`),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('stock');
-        toast.success('Stock item deleted successfully');
+        queryClient.invalidateQueries('inventory');
+        toast.success('Inventory item deleted successfully');
       },
       onError: (error) => toast.error(error.response?.data?.message || 'Failed to delete item'),
     }
@@ -121,12 +126,12 @@ const StockManagement = () => {
 
   if (isLoading) return <LoadingSpinner size="large" className="py-12" />;
 
-  const stockItems = stockResponse?.data?.stock || [];
+  // FIXED: Access inventory data correctly
+  const stockItems = inventoryResponse?.data?.inventory || [];
   const filteredItems = stockItems; // The backend now handles filtering
-  const lowStockItems = stockItems.filter(item => item.quantity <= item.minQuantity);
+  const lowStockItems = stockItems.filter(item => item.quantity <= item.minStock);
   const totalValue = stockItems.reduce((sum, item) => sum + (item.quantity * (item.unitPrice || 0)), 0);
   const categories = [...new Set(stockItems.map(item => item.category))];
-
 
   return (
     <div className="space-y-6">
@@ -223,16 +228,13 @@ const StockManagement = () => {
         </select>
       </div>
 
-      {/* Stock Table */}
+      {/* Stock Table - UPDATED: Removed SKU column, stacked Min/Max vertically */}
       <div className="table-container">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Item
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                SKU
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Category
@@ -256,24 +258,22 @@ const StockManagement = () => {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredItems.map((item) => {
-              const { status, color, icon: StatusIcon } = getStockStatus(item.quantity, item.minQuantity, item.maxQuantity);
+              // FIXED: Adjust property names to match backend model
+              const { status, color, icon: StatusIcon } = getStockStatus(item.quantity, item.minStock, item.maxStock);
               return (
                 <tr key={item.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <Package className="w-8 h-8 text-gray-400 mr-3" />
-                                            <div>
+                      <div>
                         <div className="text-sm font-medium text-gray-900">
-                          {item.name}
+                          {item.itemName}
                         </div>
                         <div className="text-sm text-gray-500">
                           Updated: {formatDate(item.updatedAt)}
                         </div>
                       </div>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.sku}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="status-badge bg-blue-100 text-blue-800">
@@ -283,9 +283,10 @@ const StockManagement = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="flex flex-col">
                       <span className="font-medium">{item.quantity}</span>
-                      <span className="text-xs text-gray-500">
-                        Min: {item.minQuantity} | Max: {item.maxQuantity || 'N/A'}
-                      </span>
+                      <div className="text-xs text-gray-500">
+                        <div>Min: {item.minStock}</div>
+                        <div>Max: {item.maxStock || 'N/A'}</div>
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -324,7 +325,7 @@ const StockManagement = () => {
                         <Package className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDeleteItem(item.id, item.name)}
+                        onClick={() => handleDeleteItem(item.id, item.itemName)}
                         className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
                         title="Delete Item"
                       >
@@ -345,7 +346,7 @@ const StockManagement = () => {
         )}
       </div>
 
-      {/* Modals */}
+      {/* Modals - Updated to use correct field names */}
       <CreateItemModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
@@ -363,7 +364,6 @@ const StockManagement = () => {
         item={selectedItem}
         isLoading={updateItemMutation.isLoading} 
       />
-
 
       <ViewItemModal
         isOpen={isViewModalOpen}
@@ -390,15 +390,15 @@ const StockManagement = () => {
   );
 };
 
-// Modal Components
+// FIXED: Updated Modal Components to use correct field names (itemName instead of name, minStock instead of minQuantity)
 const CreateItemModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
   const [formData, setFormData] = useState({
-    name: '',
+    itemName: '',
     sku: '',
     category: '',
     quantity: '',
-    minQuantity: '',
-    maxQuantity: '',
+    minStock: '',
+    maxStock: '',
     unitPrice: '',
     supplier: '',
     location: '',
@@ -410,17 +410,17 @@ const CreateItemModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
     onSubmit({
       ...formData,
       quantity: parseInt(formData.quantity),
-      minQuantity: parseInt(formData.minQuantity),
-      maxQuantity: formData.maxQuantity ? parseInt(formData.maxQuantity) : null,
+      minStock: parseInt(formData.minStock),
+      maxStock: formData.maxStock ? parseInt(formData.maxStock) : null,
       unitPrice: parseFloat(formData.unitPrice)
     });
     setFormData({
-      name: '',
+      itemName: '',
       sku: '',
       category: '',
       quantity: '',
-      minQuantity: '',
-      maxQuantity: '',
+      minStock: '',
+      maxStock: '',
       unitPrice: '',
       supplier: '',
       location: '',
@@ -438,9 +438,9 @@ const CreateItemModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
         <div className="grid grid-cols-2 gap-4">
           <input
             type="text"
-            name="name"
+            name="itemName"
             placeholder="Item Name"
-            value={formData.name}
+            value={formData.itemName}
             onChange={handleChange}
             className="input-field"
             required
@@ -452,7 +452,6 @@ const CreateItemModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
             value={formData.sku}
             onChange={handleChange}
             className="input-field"
-            required
           />
         </div>
         
@@ -481,20 +480,20 @@ const CreateItemModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
         <div className="grid grid-cols-3 gap-4">
           <input
             type="number"
-            name="minQuantity"
+            name="minStock"
             placeholder="Minimum Stock"
             min="0"
-            value={formData.minQuantity}
+            value={formData.minStock}
             onChange={handleChange}
             className="input-field"
             required
           />
           <input
             type="number"
-            name="maxQuantity"
+            name="maxStock"
             placeholder="Maximum Stock (optional)"
             min="0"
-            value={formData.maxQuantity}
+            value={formData.maxStock}
             onChange={handleChange}
             className="input-field"
           />

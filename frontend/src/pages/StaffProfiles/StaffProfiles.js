@@ -49,23 +49,37 @@ const StaffProfiles = () => {
     }
   );
 
+  // Enhanced createStaffMutation
   const createStaffMutation = useMutation(
     (data) => api.post('/staff', data),
     {
-      onSuccess: () => {
+      onSuccess: (response) => {
         queryClient.invalidateQueries('staff');
         closeAllModals();
-        toast.success('Staff member created successfully');
+        
+        // Different messages based on whether it was a new user or existing user
+        if (response.data.tempPassword) {
+          toast.success(`New staff member created. Temporary password: ${response.data.tempPassword}`);
+        } else {
+          toast.success('Staff profile created for existing user successfully');
+        }
       },
       onError: (error) => {
-        toast.error(error.response?.data?.message || 'Failed to create staff member');
+        const errorMessage = error.response?.data?.message || 'Failed to create staff member';
+        
+        // Special handling for existing staff profile case
+        if (error.response?.data?.existingStaff) {
+          const existing = error.response.data.existingStaff;
+          toast.error(`User already has a staff profile: ${existing.firstName} ${existing.lastName} (${existing.role})`);
+        } else {
+          toast.error(errorMessage);
+        }
       }
     }
   );
 
   const updateStaffMutation = useMutation(
     ({ id, data }) => api.put(`/staff/${id}`, data),
-
     {
       onSuccess: () => {
         queryClient.invalidateQueries('staff');
@@ -113,7 +127,7 @@ const StaffProfiles = () => {
     setIsEditModalOpen(true);
   };
 
-    const handleUpdateStaff = (staffData) => {
+  const handleUpdateStaff = (staffData) => {
     // The API endpoint for updating a staff member requires the user's ID, not the staff profile's ID.
     updateStaffMutation.mutate({ id: selectedStaff.id, data: staffData });
   };
@@ -398,12 +412,25 @@ const StaffProfiles = () => {
   );
 };
 
-// Modal components remain the same
+// Enhanced CreateStaffModal with existing user warning
 const CreateStaffModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
   const [formData, setFormData] = useState({
     firstName: '', lastName: '', email: '', phone: '', role: 'mentor',
     department: '', hireDate: new Date().toISOString().split('T')[0], bio: '', skillsText: ''
   });
+  const [showExistingUserWarning, setShowExistingUserWarning] = useState(false);
+
+  // Check if email matches current user
+  const currentUserEmail = localStorage.getItem('user') ? 
+    JSON.parse(localStorage.getItem('user')).email : '';
+
+  const handleEmailChange = (e) => {
+    const email = e.target.value;
+    setFormData({ ...formData, email });
+    
+    // Show info if they're adding themselves
+    setShowExistingUserWarning(email === currentUserEmail);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -423,11 +450,32 @@ const CreateStaffModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
           <input type="text" name="firstName" placeholder="First Name" value={formData.firstName} onChange={handleChange} className="input-field" required />
           <input type="text" name="lastName" placeholder="Last Name" value={formData.lastName} onChange={handleChange} className="input-field" required />
         </div>
-        <input type="email" name="email" placeholder="Email" value={formData.email} onChange={handleChange} className="input-field" required />
+        
+        <input 
+          type="email" 
+          name="email" 
+          placeholder="Email" 
+          value={formData.email} 
+          onChange={handleEmailChange} 
+          className="input-field" 
+          required 
+        />
+        
+        {showExistingUserWarning && (
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <p className="text-sm text-blue-800">
+              📝 This email matches your current account. A staff profile will be created 
+              and linked to your existing user account.
+            </p>
+          </div>
+        )}
+        
         <div className="grid grid-cols-2 gap-4">
           <input type="text" name="phone" placeholder="Phone" value={formData.phone} onChange={handleChange} className="input-field" />
           <select name="role" value={formData.role} onChange={handleChange} className="input-field" required>
-            <option value="mentor">Mentor</option> <option value="coordinator">Coordinator</option> <option value="admin">Admin</option>
+            <option value="mentor">Mentor</option> 
+            <option value="coordinator">Coordinator</option> 
+            <option value="admin">Admin</option>
           </select>
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -465,7 +513,7 @@ const EditStaffModal = ({ isOpen, onClose, onSubmit, staff, isLoading }) => {
     }
   }, [staff]);
 
-    const handleSubmit = (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     // Manually construct the payload with only the editable fields
     // to prevent sending back extraneous data like `userAccount` or `mentees`.
@@ -483,7 +531,6 @@ const EditStaffModal = ({ isOpen, onClose, onSubmit, staff, isLoading }) => {
     };
     onSubmit(submitData);
   };
-
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
