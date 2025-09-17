@@ -2,14 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, Eye, Edit, Trash2, BookOpen, ChevronLeft, ChevronRight, Camera } from 'lucide-react';
-import api from '../../services/api'; // Corrected import
+import api from '../../services/api';
 import { formatDate } from '../../utils/formatters';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import Modal from '../../components/UI/Modal';
 import toast from 'react-hot-toast';
 import TherapyNotesModal from './TherapyNotesModal';
 
-// --- Reusable Utility Functions ---
+// Utility functions remain the same
 const getStatusColor = (status) => {
   switch (status) {
     case 'Active': return 'bg-green-100 text-green-800';
@@ -36,8 +36,6 @@ const calculateAge = (dateOfBirth) => {
   }
 };
 
-
-// --- Main Mentees Component ---
 const Mentees = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -52,22 +50,27 @@ const Mentees = () => {
   const { id: menteeIdFromUrl } = useParams();
   const navigate = useNavigate();
 
-  // --- Data Fetching ---
-  const { data: menteesData, isLoading: isLoadingMentees } = useQuery('mentees', () => api.get('/mentees?limit=1000'), { retry: 1 });
-  const { data: therapyNotesData, isLoading: isLoadingNotes } = useQuery(
+  // FIX: Store the response properly
+  const { data: menteesResponse, isLoading: isLoadingMentees } = useQuery(
+    'mentees', 
+    () => api.get('/mentees?limit=1000'), 
+    { retry: 1 }
+  );
+  
+  const { data: therapyNotesResponse, isLoading: isLoadingNotes } = useQuery(
     ['therapyNotes', selectedMentee?.id],
     () => api.get(`/therapy-notes?menteeId=${selectedMentee.id}`),
     { enabled: !!selectedMentee && isTherapyNotesModalOpen, retry: 1 }
   );
   
-  // This query is ONLY for fetching a single user when the ID is in the URL
   useQuery(
     ['mentees', menteeIdFromUrl],
     () => api.get(`/mentees/${menteeIdFromUrl}`),
     {
         enabled: !!menteeIdFromUrl,
-        onSuccess: (data) => {
-            openModal(setIsViewModalOpen, data.mentee);
+        onSuccess: (response) => {
+            // FIX: Access nested data
+            openModal(setIsViewModalOpen, response.data.mentee);
         },
         onError: () => {
             toast.error("Could not find mentee.");
@@ -76,15 +79,21 @@ const Mentees = () => {
     }
   );
 
-  // --- Mutations ---
   const useMenteeMutation = (mutationFn, successToast, isUpdate = false) => useMutation(mutationFn, {
     onSuccess: (data, variables) => {
       if (isUpdate) {
         queryClient.setQueryData('mentees', (oldData) => {
-            const updatedMentees = oldData.mentees.map(mentee => 
+            // FIX: Access the nested structure
+            const updatedMentees = oldData.data.mentees.map(mentee => 
                 mentee.id === variables.id ? { ...mentee, ...variables.data } : mentee
             );
-            return { ...oldData, mentees: updatedMentees };
+            return { 
+              ...oldData, 
+              data: { 
+                ...oldData.data, 
+                mentees: updatedMentees 
+              } 
+            };
         });
       } else {
         queryClient.invalidateQueries('mentees');
@@ -120,7 +129,6 @@ const Mentees = () => {
     }
   );
 
-  // --- Event Handlers ---
   const openModal = (modalSetter, mentee = null) => {
     setSelectedMentee(mentee);
     modalSetter(true);
@@ -149,15 +157,22 @@ const Mentees = () => {
     uploadPhotoMutation.mutate({ id: selectedMentee.id, formData });
   };
 
-  // --- Filtering & Pagination ---
-  const allMentees = menteesData?.mentees || [];
-  const filteredMentees = allMentees.filter(mentee => (statusFilter === 'all' || mentee.status === statusFilter) && (offenseFilter === 'all' || mentee.offenseType === offenseFilter));
+  // FIX: Properly access the nested data
+  const allMentees = menteesResponse?.data?.mentees || [];
+  const totalCount = menteesResponse?.data?.total || 0;
+  
+  const filteredMentees = allMentees.filter(mentee => 
+    (statusFilter === 'all' || mentee.status === statusFilter) && 
+    (offenseFilter === 'all' || mentee.offenseType === offenseFilter)
+  );
+  
   const paginatedMentees = filteredMentees.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   const uniqueOffenses = [...new Set(allMentees.map(m => m.offenseType).filter(Boolean))];
   const totalPages = Math.ceil(filteredMentees.length / ITEMS_PER_PAGE);
 
   if (isLoadingMentees) return <LoadingSpinner size="large" className="py-12" />;
 
+  // Rest of your component remains the same...
   return (
     <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
@@ -202,12 +217,12 @@ const Mentees = () => {
         {isCreateModalOpen && <MenteeModal isOpen={isCreateModalOpen} onClose={closeAllModals} onSubmit={createMenteeMutation.mutate} isLoading={createMenteeMutation.isLoading} title="Add New Mentee" />}
         {isEditModalOpen && <MenteeModal isOpen={isEditModalOpen} onClose={closeAllModals} onSubmit={(data) => updateMenteeMutation.mutate({ id: selectedMentee.id, data })} onUploadPhoto={handlePhotoUpload} isUploading={uploadPhotoMutation.isLoading} isLoading={updateMenteeMutation.isLoading} mentee={selectedMentee} title="Edit Mentee" />}
         {isViewModalOpen && <ViewMenteeModal isOpen={isViewModalOpen} onClose={closeAllModals} mentee={selectedMentee} />}
-        {isTherapyNotesModalOpen && <TherapyNotesModal isOpen={isTherapyNotesModalOpen} onClose={closeAllModals} mentee={selectedMentee} therapyNotes={therapyNotesData?.notes || []} isLoadingNotes={isLoadingNotes} onAddNote={handleAddNote} isAddingNote={addTherapyNoteMutation.isLoading} />}
+        {isTherapyNotesModalOpen && <TherapyNotesModal isOpen={isTherapyNotesModalOpen} onClose={closeAllModals} mentee={selectedMentee} therapyNotes={therapyNotesResponse?.data?.notes || []} isLoadingNotes={isLoadingNotes} onAddNote={handleAddNote} isAddingNote={addTherapyNoteMutation.isLoading} />}
     </div>
   );
 };
 
-// --- Sub-Components ---
+// All modal components remain the same...
 const Pagination = ({ currentPage, totalPages, onPageChange, count }) => (
     <div className="flex justify-between items-center pt-4 border-t">
         <p className='text-sm text-gray-700'>Showing 1 to {Math.min(currentPage * 10, count)} of {count} results</p>
@@ -219,6 +234,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange, count }) => (
     </div>
 );
 
+// Rest of the modal components remain exactly the same...
 const MenteeModal = ({ isOpen, onClose, onSubmit, mentee = {}, title, isLoading, onUploadPhoto, isUploading }) => {
   const [formData, setFormData] = useState({});
   const fileInputRef = useRef(null);
@@ -230,7 +246,7 @@ const MenteeModal = ({ isOpen, onClose, onSubmit, mentee = {}, title, isLoading,
 
   const handleSubmit = (e) => { 
     e.preventDefault(); 
-    const { photoUrl, ...submitData } = formData; // Exclude photoUrl from form submission
+    const { photoUrl, ...submitData } = formData;
     onSubmit(submitData);
   };
   const handleChange = (e) => {

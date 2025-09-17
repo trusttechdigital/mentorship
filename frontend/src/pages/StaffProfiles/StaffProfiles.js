@@ -1,20 +1,20 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, Eye, Edit, Trash2, User, Shield, UserCheck, Search, Key } from 'lucide-react'; // Added Key icon
-import api from '../../services/api'; // Corrected import
+import { Plus, Eye, Edit, Trash2, User, Shield, UserCheck, Search, Key } from 'lucide-react';
+import api from '../../services/api';
 import { formatDate } from '../../utils/formatters';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import Modal from '../../components/UI/Modal';
 import ConfirmDialog from '../../components/UI/ConfirmDialog';
 import toast from 'react-hot-toast';
-import StaffPasswordModal from '../../components/Staff/StaffPasswordModal'; // Import StaffPasswordModal
+import StaffPasswordModal from '../../components/Staff/StaffPasswordModal';
 
 const StaffProfiles = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [isSetPasswordModalOpen, setIsSetPasswordModalOpen] = useState(false); // New state for password modal
+  const [isSetPasswordModalOpen, setIsSetPasswordModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -23,9 +23,10 @@ const StaffProfiles = () => {
   const { id: staffIdFromUrl } = useParams();
   const navigate = useNavigate();
 
-  const { data: staffData, isLoading } = useQuery(
+  // FIX: Extract the data properly from axios response
+  const { data: staffResponse, isLoading } = useQuery(
     ['staff', { search: searchTerm }],
-    () => api.get(`/staff?search=${searchTerm}`), // Corrected usage
+    () => api.get(`/staff?search=${searchTerm}`),
     { 
       retry: false,
     }
@@ -34,11 +35,12 @@ const StaffProfiles = () => {
   // This query is ONLY for fetching a single user when the ID is in the URL
   useQuery(
     ['staff', staffIdFromUrl],
-    () => api.get(`/staff/${staffIdFromUrl}`), // Corrected usage
+    () => api.get(`/staff/${staffIdFromUrl}`),
     {
-      enabled: !!staffIdFromUrl, // Only run if staffIdFromUrl is present
-      onSuccess: (data) => {
-        handleViewStaff(data.staff); // Use your existing function to open the modal
+      enabled: !!staffIdFromUrl,
+      onSuccess: (response) => {
+        // FIX: Access the nested data
+        handleViewStaff(response.data.staff);
       },
       onError: () => {
         toast.error("Could not find staff member.");
@@ -48,7 +50,7 @@ const StaffProfiles = () => {
   );
 
   const createStaffMutation = useMutation(
-    (data) => api.post('/staff', data), // Corrected usage
+    (data) => api.post('/staff', data),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('staff');
@@ -62,7 +64,7 @@ const StaffProfiles = () => {
   );
 
   const updateStaffMutation = useMutation(
-    ({ id, data }) => api.put(`/staff/${id}`, data), // Corrected usage
+    ({ id, data }) => api.put(`/staff/${id}`, data),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('staff');
@@ -76,7 +78,7 @@ const StaffProfiles = () => {
   );
 
   const deleteStaffMutation = useMutation(
-    (id) => api.delete(`/staff/${id}`), // Corrected usage
+    (id) => api.delete(`/staff/${id}`),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('staff');
@@ -92,11 +94,10 @@ const StaffProfiles = () => {
     setIsCreateModalOpen(false);
     setIsEditModalOpen(false);
     setIsViewModalOpen(false);
-    setIsSetPasswordModalOpen(false); // Close password modal
+    setIsSetPasswordModalOpen(false);
     setSelectedStaff(null);
     setStaffToDelete(null);
     setIsDeleteDialogOpen(false);
-    // This is key: navigate away to clear the URL ID
     if (staffIdFromUrl) {
       navigate('/staff', { replace: true });
     }
@@ -125,9 +126,8 @@ const StaffProfiles = () => {
     setIsDeleteDialogOpen(true);
   };
 
-  // New handler for setting password
   const handleSetPasswordClick = (staff) => {
-    setSelectedStaff(staff); // Set the staff member for the modal
+    setSelectedStaff(staff);
     setIsSetPasswordModalOpen(true);
   };
 
@@ -162,7 +162,8 @@ const StaffProfiles = () => {
 
   if (isLoading) return <LoadingSpinner size="large" className="py-12" />;
 
-  const staff = staffData?.staff || [];
+  // FIX: Properly access the nested staff array
+  const staff = staffResponse?.data?.staff || [];
 
   const filteredStaff = staff.filter(member =>
     member.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -328,7 +329,6 @@ const StaffProfiles = () => {
                     >
                       <Edit className="w-4 h-4" />
                     </button>
-                    {/* New Set Password Button */}
                     <button
                       onClick={() => handleSetPasswordClick(member)}
                       className="text-purple-600 hover:text-purple-900 p-1 rounded hover:bg-purple-50"
@@ -377,7 +377,7 @@ const StaffProfiles = () => {
         staff={selectedStaff}
       />
 
-      <StaffPasswordModal // Integrated StaffPasswordModal
+      <StaffPasswordModal
         isOpen={isSetPasswordModalOpen}
         onClose={closeAllModals}
         staffId={selectedStaff?.id}
@@ -397,7 +397,7 @@ const StaffProfiles = () => {
   );
 };
 
-
+// Modal components remain the same
 const CreateStaffModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
   const [formData, setFormData] = useState({
     firstName: '', lastName: '', email: '', phone: '', role: 'mentor',

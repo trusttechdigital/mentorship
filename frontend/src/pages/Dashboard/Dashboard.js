@@ -3,17 +3,17 @@ import { useQuery } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Users, BookOpen, FileText, DollarSign, Package, Clock, TrendingUp, AlertTriangle } from 'lucide-react';
-import api from '../../services/api'; // Corrected import
+import api from '../../services/api';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Fetch dashboard stats from backend
-  const { data: dashboardData, isLoading, error } = useQuery(
+  // FIX: Store the response properly
+  const { data: dashboardResponse, isLoading, error } = useQuery(
     'dashboard-stats',
-    () => api.get('/dashboard/stats'), // Corrected usage
+    () => api.get('/dashboard/stats'),
     {
       retry: 1,
       refetchOnWindowFocus: false,
@@ -27,7 +27,6 @@ const Dashboard = () => {
     return 'Good evening';
   };
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -44,7 +43,6 @@ const Dashboard = () => {
     );
   }
 
-  // Error state - backend not available
   if (error) {
     return (
       <div className="space-y-6">
@@ -74,20 +72,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
-          <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Mock Data</h3>
-          <p className="text-gray-600 mb-4">
-            This dashboard displays real data from your backend API only.
-            Start your backend server to see live statistics.
-          </p>
-          <div className="text-sm text-gray-500 space-y-1">
-            <p>Expected data: Active staff, mentees, documents, invoices, and inventory</p>
-            <p>API Health Check: <code>GET /api/health</code></p>
-          </div>
-        </div>
-
-        {/* Quick Actions - Even when backend is down */}
+        {/* Quick Actions section remains the same */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -139,9 +124,9 @@ const Dashboard = () => {
     );
   }
 
-  // Success state - render with real backend data
-  const stats = dashboardData?.stats || {};
-  const recentActivity = dashboardData?.recentActivity || {};
+  // FIX: Properly access the nested data from axios response
+  const stats = dashboardResponse?.data?.stats || {};
+  const recentActivity = dashboardResponse?.data?.recentActivity || {};
 
   const dashboardCards = [
     {
@@ -281,7 +266,6 @@ const Dashboard = () => {
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>
         
-        {/* Show loading state for activity */}
         {(!recentActivity.newMentees && !recentActivity.newDocuments && !recentActivity.pendingInvoices) ? (
           <div className="space-y-3">
             <div className="flex items-center space-x-3 text-sm">
@@ -291,7 +275,6 @@ const Dashboard = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Recent Mentees */}
             {recentActivity.newMentees?.map((mentee, index) => (
               <div key={index} className="flex items-center space-x-3 text-sm">
                 <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
@@ -304,7 +287,6 @@ const Dashboard = () => {
               </div>
             ))}
 
-            {/* Recent Documents */}
             {recentActivity.newDocuments?.map((doc, index) => (
               <div key={index} className="flex items-center space-x-3 text-sm">
                 <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
@@ -314,7 +296,6 @@ const Dashboard = () => {
               </div>
             ))}
 
-            {/* Pending Invoices */}
             {recentActivity.pendingInvoices?.map((invoice, index) => (
               <div key={index} className="flex items-center space-x-3 text-sm">
                 <div className="w-2 h-2 bg-yellow-500 rounded-full flex-shrink-0"></div>
@@ -324,7 +305,6 @@ const Dashboard = () => {
               </div>
             ))}
 
-            {/* Show message if no activity */}
             {(!recentActivity.newMentees?.length && !recentActivity.newDocuments?.length && !recentActivity.pendingInvoices?.length) && (
               <div className="text-center py-4 text-gray-500">
                 <Clock className="w-8 h-8 mx-auto mb-2 text-gray-400" />
