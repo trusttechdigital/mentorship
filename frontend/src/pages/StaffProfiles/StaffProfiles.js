@@ -65,6 +65,7 @@ const StaffProfiles = () => {
 
   const updateStaffMutation = useMutation(
     ({ id, data }) => api.put(`/staff/${id}`, data),
+
     {
       onSuccess: () => {
         queryClient.invalidateQueries('staff');
@@ -112,7 +113,8 @@ const StaffProfiles = () => {
     setIsEditModalOpen(true);
   };
 
-  const handleUpdateStaff = (staffData) => {
+    const handleUpdateStaff = (staffData) => {
+    // The API endpoint for updating a staff member requires the user's ID, not the staff profile's ID.
     updateStaffMutation.mutate({ id: selectedStaff.id, data: staffData });
   };
 
@@ -463,12 +465,25 @@ const EditStaffModal = ({ isOpen, onClose, onSubmit, staff, isLoading }) => {
     }
   }, [staff]);
 
-  const handleSubmit = (e) => {
+    const handleSubmit = (e) => {
     e.preventDefault();
-    const { skillsText, ...rest } = formData;
-    const submitData = { ...rest, skills: skillsText.split('\n').map(s => s.trim()).filter(Boolean) };
+    // Manually construct the payload with only the editable fields
+    // to prevent sending back extraneous data like `userAccount` or `mentees`.
+    const submitData = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phone: formData.phone,
+      role: formData.role,
+      department: formData.department,
+      hireDate: formData.hireDate,
+      bio: formData.bio,
+      isActive: formData.isActive,
+      skills: formData.skillsText.split('\n').map(s => s.trim()).filter(Boolean),
+    };
     onSubmit(submitData);
   };
+
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
