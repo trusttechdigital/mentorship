@@ -1,127 +1,106 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { Plus, Eye, Edit, Trash2, User, Shield, UserCheck, Search } from 'lucide-react';
-import { apiClient } from '../../services/api';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Plus, Eye, Edit, Trash2, User, Shield, UserCheck, Search, Key } from 'lucide-react'; // Added Key icon
+import api from '../../services/api'; // Corrected import
 import { formatDate } from '../../utils/formatters';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import Modal from '../../components/UI/Modal';
 import ConfirmDialog from '../../components/UI/ConfirmDialog';
 import toast from 'react-hot-toast';
+import StaffPasswordModal from '../../components/Staff/StaffPasswordModal'; // Import StaffPasswordModal
 
 const StaffProfiles = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isSetPasswordModalOpen, setIsSetPasswordModalOpen] = useState(false); // New state for password modal
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [staffToDelete, setStaffToDelete] = useState(null);
   const queryClient = useQueryClient();
-
-  // Mock data for when API isn't available
-  const mockStaffMembers = [
-    {
-      id: '1',
-      firstName: 'Test',
-      lastName: 'Admin',
-      email: 'admin@mentorship.com',
-      phone: '+1-473-555-0001',
-      role: 'admin',
-      department: 'Administration',
-      hireDate: '2024-01-15T00:00:00Z',
-      isActive: true,
-      bio: 'System administrator with extensive experience in mentorship programs.',
-      skills: ['Leadership', 'Project Management', 'System Administration'],
-      mentees: []
-    },
-    {
-      id: '2',
-      firstName: 'John',
-      lastName: 'Mentor',
-      email: 'john.mentor@mentorship.com',
-      phone: '+1-473-555-0002',
-      role: 'mentor',
-      department: 'Business Development',
-      hireDate: '2024-02-20T00:00:00Z',
-      isActive: true,
-      bio: 'Senior business mentor specializing in startup guidance and strategic planning.',
-      skills: ['Business Strategy', 'Startup Mentoring', 'Financial Planning'],
-      mentees: [
-        { firstName: 'Jane', lastName: 'Student' },
-        { firstName: 'Bob', lastName: 'Learner' }
-      ]
-    },
-    {
-      id: '3',
-      firstName: 'Sarah',
-      lastName: 'Coordinator',
-      email: 'sarah.coord@mentorship.com',
-      phone: '+1-473-555-0003',
-      role: 'coordinator',
-      department: 'Program Coordination',
-      hireDate: '2024-03-10T00:00:00Z',
-      isActive: true,
-      bio: 'Program coordinator focusing on mentor-mentee matching and program logistics.',
-      skills: ['Program Management', 'Coordination', 'Communication'],
-      mentees: [
-        { firstName: 'Alice', lastName: 'Growth' }
-      ]
-    }
-  ];
+  const { id: staffIdFromUrl } = useParams();
+  const navigate = useNavigate();
 
   const { data: staffData, isLoading } = useQuery(
     ['staff', { search: searchTerm }],
-    () => apiClient.get(`/staff?search=${searchTerm}`),
+    () => api.get(`/staff?search=${searchTerm}`), // Corrected usage
     { 
       retry: false,
-      onError: () => console.log('Using mock staff data')
+    }
+  );
+
+  // This query is ONLY for fetching a single user when the ID is in the URL
+  useQuery(
+    ['staff', staffIdFromUrl],
+    () => api.get(`/staff/${staffIdFromUrl}`), // Corrected usage
+    {
+      enabled: !!staffIdFromUrl, // Only run if staffIdFromUrl is present
+      onSuccess: (data) => {
+        handleViewStaff(data.staff); // Use your existing function to open the modal
+      },
+      onError: () => {
+        toast.error("Could not find staff member.");
+        navigate('/staff');
+      }
     }
   );
 
   const createStaffMutation = useMutation(
-    (data) => apiClient.post('/staff', data),
+    (data) => api.post('/staff', data), // Corrected usage
     {
       onSuccess: () => {
         queryClient.invalidateQueries('staff');
-        setIsCreateModalOpen(false);
+        closeAllModals();
         toast.success('Staff member created successfully');
       },
-      onError: () => {
-        // Simulate successful creation for demo
-        queryClient.invalidateQueries('staff');
-        setIsCreateModalOpen(false);
-        toast.success('Staff member created successfully (Demo Mode)');
+      onError: (error) => {
+        toast.error(error.response?.data?.message || 'Failed to create staff member');
       }
     }
   );
 
   const updateStaffMutation = useMutation(
-    ({ id, data }) => apiClient.put(`/staff/${id}`, data),
+    ({ id, data }) => api.put(`/staff/${id}`, data), // Corrected usage
     {
       onSuccess: () => {
         queryClient.invalidateQueries('staff');
-        setIsEditModalOpen(false);
-        setSelectedStaff(null);
+        closeAllModals();
         toast.success('Staff member updated successfully');
       },
-      onError: () => {
-        toast.error('Failed to update staff member - API not available');
+      onError: (error) => {
+        toast.error(error.response?.data?.message || 'Failed to update staff member');
       }
     }
   );
 
   const deleteStaffMutation = useMutation(
-    (id) => apiClient.delete(`/staff/${id}`),
+    (id) => api.delete(`/staff/${id}`), // Corrected usage
     {
       onSuccess: () => {
         queryClient.invalidateQueries('staff');
         toast.success('Staff member deleted successfully');
       },
-      onError: () => {
-        toast.error('Failed to delete staff member - API not available');
+      onError: (error) => {
+        toast.error(error.response?.data?.message || 'Failed to delete staff member');
       }
     }
   );
+
+  const closeAllModals = () => {
+    setIsCreateModalOpen(false);
+    setIsEditModalOpen(false);
+    setIsViewModalOpen(false);
+    setIsSetPasswordModalOpen(false); // Close password modal
+    setSelectedStaff(null);
+    setStaffToDelete(null);
+    setIsDeleteDialogOpen(false);
+    // This is key: navigate away to clear the URL ID
+    if (staffIdFromUrl) {
+      navigate('/staff', { replace: true });
+    }
+  };
 
   const handleCreateStaff = (staffData) => {
     createStaffMutation.mutate(staffData);
@@ -146,11 +125,17 @@ const StaffProfiles = () => {
     setIsDeleteDialogOpen(true);
   };
 
+  // New handler for setting password
+  const handleSetPasswordClick = (staff) => {
+    setSelectedStaff(staff); // Set the staff member for the modal
+    setIsSetPasswordModalOpen(true);
+  };
+
   const handleDeleteConfirm = () => {
     if (staffToDelete) {
       deleteStaffMutation.mutate(staffToDelete.id);
-      setStaffToDelete(null);
     }
+    closeAllModals();
   };
 
   const getRoleIcon = (role) => {
@@ -177,7 +162,9 @@ const StaffProfiles = () => {
 
   if (isLoading) return <LoadingSpinner size="large" className="py-12" />;
 
-  const staff = staffData?.staff || mockStaffMembers.filter(member =>
+  const staff = staffData?.staff || [];
+
+  const filteredStaff = staff.filter(member =>
     member.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     member.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     member.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -185,7 +172,7 @@ const StaffProfiles = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Staff Profiles</h1>
@@ -200,7 +187,6 @@ const StaffProfiles = () => {
         </button>
       </div>
 
-      {/* Search Bar */}
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
         <input
@@ -212,49 +198,45 @@ const StaffProfiles = () => {
         />
       </div>
 
-      {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="card bg-blue-50 border-blue-200">
           <div className="flex items-center">
             <User className="w-8 h-8 text-blue-600" />
             <div className="ml-3">
               <p className="text-sm font-medium text-blue-600">Total Staff</p>
-              <p className="text-xl font-bold text-blue-900">{staff.length}</p>
+              <p className="text-xl font-bold text-blue-900">{filteredStaff.length}</p>
             </div>
           </div>
         </div>
-        
         <div className="card bg-red-50 border-red-200">
           <div className="flex items-center">
             <Shield className="w-8 h-8 text-red-600" />
             <div className="ml-3">
               <p className="text-sm font-medium text-red-600">Admins</p>
               <p className="text-xl font-bold text-red-900">
-                {staff.filter(s => s.role === 'admin').length}
+                {filteredStaff.filter(s => s.role === 'admin').length}
               </p>
             </div>
           </div>
         </div>
-        
         <div className="card bg-purple-50 border-purple-200">
           <div className="flex items-center">
             <UserCheck className="w-8 h-8 text-purple-600" />
             <div className="ml-3">
               <p className="text-sm font-medium text-purple-600">Coordinators</p>
               <p className="text-xl font-bold text-purple-900">
-                {staff.filter(s => s.role === 'coordinator').length}
+                {filteredStaff.filter(s => s.role === 'coordinator').length}
               </p>
             </div>
           </div>
         </div>
-        
         <div className="card bg-green-50 border-green-200">
           <div className="flex items-center">
             <User className="w-8 h-8 text-green-600" />
             <div className="ml-3">
               <p className="text-sm font-medium text-green-600">Mentors</p>
               <p className="text-xl font-bold text-green-900">
-                {staff.filter(s => s.role === 'mentor').length}
+                {filteredStaff.filter(s => s.role === 'mentor').length}
               </p>
             </div>
           </div>
@@ -289,7 +271,7 @@ const StaffProfiles = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {staff.map((member) => (
+            {filteredStaff.map((member) => (
               <tr key={member.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
@@ -346,6 +328,14 @@ const StaffProfiles = () => {
                     >
                       <Edit className="w-4 h-4" />
                     </button>
+                    {/* New Set Password Button */}
+                    <button
+                      onClick={() => handleSetPasswordClick(member)}
+                      className="text-purple-600 hover:text-purple-900 p-1 rounded hover:bg-purple-50"
+                      title="Set Password"
+                    >
+                      <Key className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => handleDeleteClick(member)}
                       className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
@@ -359,27 +349,23 @@ const StaffProfiles = () => {
             ))}
           </tbody>
         </table>
-        {staff.length === 0 && (
+        {filteredStaff.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             No staff members found. Add your first team member!
           </div>
         )}
       </div>
 
-      {/* Modals */}
       <CreateStaffModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        onClose={closeAllModals}
         onSubmit={handleCreateStaff}
         isLoading={createStaffMutation.isLoading}
       />
 
       <EditStaffModal
         isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setSelectedStaff(null);
-        }}
+        onClose={closeAllModals}
         onSubmit={handleUpdateStaff}
         staff={selectedStaff}
         isLoading={updateStaffMutation.isLoading}
@@ -387,19 +373,20 @@ const StaffProfiles = () => {
 
       <ViewStaffModal
         isOpen={isViewModalOpen}
-        onClose={() => {
-          setIsViewModalOpen(false);
-          setSelectedStaff(null);
-        }}
+        onClose={closeAllModals}
         staff={selectedStaff}
+      />
+
+      <StaffPasswordModal // Integrated StaffPasswordModal
+        isOpen={isSetPasswordModalOpen}
+        onClose={closeAllModals}
+        staffId={selectedStaff?.id}
+        staffName={selectedStaff ? `${selectedStaff.firstName} ${selectedStaff.lastName}` : ''}
       />
 
       <ConfirmDialog
         isOpen={isDeleteDialogOpen}
-        onClose={() => {
-          setIsDeleteDialogOpen(false);
-          setStaffToDelete(null);
-        }}
+        onClose={closeAllModals}
         onConfirm={handleDeleteConfirm}
         title="Delete Staff Member"
         message={`Are you sure you want to delete ${staffToDelete?.firstName} ${staffToDelete?.lastName}? This action cannot be undone.`}
@@ -410,161 +397,53 @@ const StaffProfiles = () => {
   );
 };
 
-// Modal Components
+
 const CreateStaffModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    role: 'mentor',
-    department: '',
-    hireDate: new Date().toISOString().split('T')[0],
-    bio: '',
-    skillsText: ''  // Changed from skills array to skillsText string
+    firstName: '', lastName: '', email: '', phone: '', role: 'mentor',
+    department: '', hireDate: new Date().toISOString().split('T')[0], bio: '', skillsText: ''
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const submitData = {
       ...formData,
-      skills: formData.skillsText
-        .split('\n')
-        .map(skill => skill.trim())
-        .filter(skill => skill !== '')
+      skills: formData.skillsText.split('\n').map(skill => skill.trim()).filter(skill => skill !== '')
     };
     onSubmit(submitData);
-    setFormData({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      role: 'mentor',
-      department: '',
-      hireDate: new Date().toISOString().split('T')[0],
-      bio: '',
-      skillsText: ''
-    });
   };
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Add New Staff Member" size="large">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <input
-            type="text"
-            name="firstName"
-            placeholder="First Name"
-            value={formData.firstName}
-            onChange={handleChange}
-            className="input-field"
-            required
-          />
-          <input
-            type="text"
-            name="lastName"
-            placeholder="Last Name"
-            value={formData.lastName}
-            onChange={handleChange}
-            className="input-field"
-            required
-          />
+          <input type="text" name="firstName" placeholder="First Name" value={formData.firstName} onChange={handleChange} className="input-field" required />
+          <input type="text" name="lastName" placeholder="Last Name" value={formData.lastName} onChange={handleChange} className="input-field" required />
         </div>
-        
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          value={formData.email}
-          onChange={handleChange}
-          className="input-field"
-          required
-        />
-        
+        <input type="email" name="email" placeholder="Email" value={formData.email} onChange={handleChange} className="input-field" required />
         <div className="grid grid-cols-2 gap-4">
-          <input
-            type="text"
-            name="phone"
-            placeholder="Phone"
-            value={formData.phone}
-            onChange={handleChange}
-            className="input-field"
-          />
-          <select
-            name="role"
-            value={formData.role}
-            onChange={handleChange}
-            className="input-field"
-            required
-          >
-            <option value="mentor">Mentor</option>
-            <option value="coordinator">Coordinator</option>
-            <option value="admin">Admin</option>
+          <input type="text" name="phone" placeholder="Phone" value={formData.phone} onChange={handleChange} className="input-field" />
+          <select name="role" value={formData.role} onChange={handleChange} className="input-field" required>
+            <option value="mentor">Mentor</option> <option value="coordinator">Coordinator</option> <option value="admin">Admin</option>
           </select>
         </div>
-        
         <div className="grid grid-cols-2 gap-4">
-          <input
-            type="text"
-            name="department"
-            placeholder="Department"
-            value={formData.department}
-            onChange={handleChange}
-            className="input-field"
-          />
+          <input type="text" name="department" placeholder="Department" value={formData.department} onChange={handleChange} className="input-field" />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Hire Date
-            </label>
-            <input
-              type="date"
-              name="hireDate"
-              value={formData.hireDate}
-              onChange={handleChange}
-              className="input-field"
-              required
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Hire Date</label>
+            <input type="date" name="hireDate" value={formData.hireDate} onChange={handleChange} className="input-field" required />
           </div>
         </div>
-        
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Skills (one per line)
-          </label>
-          <textarea
-            name="skillsText"
-            placeholder="Enter skills, one per line&#10;Example:&#10;Leadership&#10;Project Management&#10;Strategic Planning"
-            rows="4"
-            value={formData.skillsText}
-            onChange={handleChange}
-            className="input-field resize-none"
-            style={{ whiteSpace: 'pre-wrap' }}
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Press Enter to create new lines. Each line will become a separate skill.
-          </p>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Skills (one per line)</label>
+          <textarea name="skillsText" placeholder="Enter skills, one per line..." rows="4" value={formData.skillsText} onChange={handleChange} className="input-field resize-none" />
         </div>
-        
-        <textarea
-          name="bio"
-          placeholder="Bio"
-          rows="3"
-          value={formData.bio}
-          onChange={handleChange}
-          className="input-field"
-        />
-        
+        <textarea name="bio" placeholder="Bio" rows="3" value={formData.bio} onChange={handleChange} className="input-field" />
         <div className="flex justify-end space-x-3">
-          <button type="button" onClick={onClose} className="btn-secondary">
-            Cancel
-          </button>
-          <button type="submit" disabled={isLoading} className="btn-primary">
-            {isLoading ? <LoadingSpinner size="small" /> : 'Add Staff Member'}
-          </button>
+          <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+          <button type="submit" disabled={isLoading} className="btn-primary">{isLoading ? <LoadingSpinner size="small" /> : 'Add Staff'}</button>
         </div>
       </form>
     </Modal>
@@ -572,30 +451,13 @@ const CreateStaffModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
 };
 
 const EditStaffModal = ({ isOpen, onClose, onSubmit, staff, isLoading }) => {
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    role: 'mentor',
-    department: '',
-    hireDate: '',
-    bio: '',
-    skillsText: '',
-    isActive: true
-  });
+  const [formData, setFormData] = useState({});
 
   React.useEffect(() => {
     if (staff) {
       setFormData({
-        firstName: staff.firstName || '',
-        lastName: staff.lastName || '',
-        email: staff.email || '',
-        phone: staff.phone || '',
-        role: staff.role || 'mentor',
-        department: staff.department || '',
+        ...staff,
         hireDate: staff.hireDate ? staff.hireDate.split('T')[0] : '',
-        bio: staff.bio || '',
         skillsText: (staff.skills || []).join('\n'),
         isActive: staff.isActive !== undefined ? staff.isActive : true
       });
@@ -604,22 +466,14 @@ const EditStaffModal = ({ isOpen, onClose, onSubmit, staff, isLoading }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const submitData = {
-      ...formData,
-      skills: formData.skillsText
-        .split('\n')
-        .map(skill => skill.trim())
-        .filter(skill => skill !== '')
-    };
+    const { skillsText, ...rest } = formData;
+    const submitData = { ...rest, skills: skillsText.split('\n').map(s => s.trim()).filter(Boolean) };
     onSubmit(submitData);
   };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData({ 
-      ...formData, 
-      [name]: type === 'checkbox' ? checked : value 
-    });
+    setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
   };
 
   if (!staff) return null;
@@ -628,130 +482,35 @@ const EditStaffModal = ({ isOpen, onClose, onSubmit, staff, isLoading }) => {
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Staff Member" size="large">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <input
-            type="text"
-            name="firstName"
-            placeholder="First Name"
-            value={formData.firstName}
-            onChange={handleChange}
-            className="input-field"
-            required
-          />
-          <input
-            type="text"
-            name="lastName"
-            placeholder="Last Name"
-            value={formData.lastName}
-            onChange={handleChange}
-            className="input-field"
-            required
-          />
+          <input type="text" name="firstName" value={formData.firstName || ''} onChange={handleChange} className="input-field" required />
+          <input type="text" name="lastName" value={formData.lastName || ''} onChange={handleChange} className="input-field" required />
         </div>
-        
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          value={formData.email}
-          onChange={handleChange}
-          className="input-field"
-          required
-        />
-        
+        <input type="email" name="email" value={formData.email || ''} onChange={handleChange} className="input-field" required />
         <div className="grid grid-cols-2 gap-4">
-          <input
-            type="text"
-            name="phone"
-            placeholder="Phone"
-            value={formData.phone}
-            onChange={handleChange}
-            className="input-field"
-          />
-          <select
-            name="role"
-            value={formData.role}
-            onChange={handleChange}
-            className="input-field"
-            required
-          >
-            <option value="mentor">Mentor</option>
-            <option value="coordinator">Coordinator</option>
-            <option value="admin">Admin</option>
+          <input type="text" name="phone" value={formData.phone || ''} onChange={handleChange} className="input-field" />
+          <select name="role" value={formData.role || 'mentor'} onChange={handleChange} className="input-field" required>
+            <option value="mentor">Mentor</option> <option value="coordinator">Coordinator</option> <option value="admin">Admin</option>
           </select>
         </div>
-        
         <div className="grid grid-cols-2 gap-4">
-          <input
-            type="text"
-            name="department"
-            placeholder="Department"
-            value={formData.department}
-            onChange={handleChange}
-            className="input-field"
-          />
+          <input type="text" name="department" value={formData.department || ''} onChange={handleChange} className="input-field" />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Hire Date
-            </label>
-            <input
-              type="date"
-              name="hireDate"
-              value={formData.hireDate}
-              onChange={handleChange}
-              className="input-field"
-              required
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Hire Date</label>
+            <input type="date" name="hireDate" value={formData.hireDate || ''} onChange={handleChange} className="input-field" required />
           </div>
         </div>
-        
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Skills (one per line)
-          </label>
-          <textarea
-            name="skillsText"
-            placeholder="Enter skills, one per line&#10;Example:&#10;Leadership&#10;Project Management&#10;Strategic Planning"
-            rows="4"
-            value={formData.skillsText}
-            onChange={handleChange}
-            className="input-field resize-none"
-            style={{ whiteSpace: 'pre-wrap' }}
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Press Enter to create new lines. Each line will become a separate skill.
-          </p>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Skills (one per line)</label>
+          <textarea name="skillsText" value={formData.skillsText || ''} onChange={handleChange} rows="4" className="input-field resize-none" />
         </div>
-        
-        <textarea
-          name="bio"
-          placeholder="Bio"
-          rows="3"
-          value={formData.bio}
-          onChange={handleChange}
-          className="input-field"
-        />
-        
+        <textarea name="bio" value={formData.bio || ''} onChange={handleChange} rows="3" className="input-field" />
         <div className="flex items-center">
-          <input
-            type="checkbox"
-            name="isActive"
-            id="isActive"
-            checked={formData.isActive}
-            onChange={handleChange}
-            className="mr-2"
-          />
-          <label htmlFor="isActive" className="text-sm text-gray-700">
-            Active staff member
-          </label>
+          <input type="checkbox" name="isActive" id="isActiveEdit" checked={formData.isActive || false} onChange={handleChange} className="mr-2" />
+          <label htmlFor="isActiveEdit">Active staff member</label>
         </div>
-        
         <div className="flex justify-end space-x-3">
-          <button type="button" onClick={onClose} className="btn-secondary">
-            Cancel
-          </button>
-          <button type="submit" disabled={isLoading} className="btn-primary">
-            {isLoading ? <LoadingSpinner size="small" /> : 'Update Staff Member'}
-          </button>
+          <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+          <button type="submit" disabled={isLoading} className="btn-primary">{isLoading ? <LoadingSpinner size="small" /> : 'Update Staff'}</button>
         </div>
       </form>
     </Modal>
@@ -760,66 +519,27 @@ const EditStaffModal = ({ isOpen, onClose, onSubmit, staff, isLoading }) => {
 
 const ViewStaffModal = ({ isOpen, onClose, staff }) => {
   if (!staff) return null;
-
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Staff Member Details" size="medium">
+    <Modal isOpen={isOpen} onClose={onClose} title="Staff Member Details" size="large">
       <div className="space-y-4">
         <div className="flex items-center space-x-4">
-          <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center">
-            {staff.role === 'admin' && <Shield className="w-8 h-8 text-red-600" />}
-            {staff.role === 'coordinator' && <UserCheck className="w-8 h-8 text-purple-600" />}
-            {staff.role === 'mentor' && <User className="w-8 h-8 text-blue-600" />}
-          </div>
-          <div>
-            <h3 className="text-lg font-medium text-gray-900">
-              {staff.firstName} {staff.lastName}
-            </h3>
-            <span className={`status-badge ${
-              staff.role === 'admin' ? 'bg-red-100 text-red-800' :
-              staff.role === 'coordinator' ? 'bg-purple-100 text-purple-800' :
-              'bg-blue-100 text-blue-800'
-            }`}>
-              {staff.role}
-            </span>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <label className="font-medium text-gray-700">Email:</label>
-            <p className="text-gray-900">{staff.email}</p>
-          </div>
-          <div>
-            <label className="font-medium text-gray-700">Phone:</label>
-            <p className="text-gray-900">{staff.phone || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="font-medium text-gray-700">Department:</label>
-            <p className="text-gray-900">{staff.department || 'Not assigned'}</p>
-          </div>
-          <div>
-            <label className="font-medium text-gray-700">Hire Date:</label>
-            <p className="text-gray-900">{formatDate(staff.hireDate)}</p>
-          </div>
-          <div>
-            <label className="font-medium text-gray-700">Status:</label>
-            <span className={`status-badge ${
-              staff.isActive 
-                ? 'bg-green-100 text-green-800' 
-                : 'bg-red-100 text-red-800'
-            }`}>
-              {staff.isActive ? 'Active' : 'Inactive'}
-            </span>
-          </div>
-          {staff.mentees && staff.mentees.length > 0 && (
-            <div>
-              <label className="font-medium text-gray-700">Mentees:</label>
-              <p className="text-gray-900">{staff.mentees.length} assigned</p>
+            <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center">
+                {staff.role === 'admin' && <Shield className="w-8 h-8 text-red-600" />}
+                {staff.role === 'coordinator' && <UserCheck className="w-8 h-8 text-purple-600" />}
+                {staff.role === 'mentor' && <User className="w-8 h-8 text-blue-600" />}
             </div>
-          )}
+            <div>
+                <h3 className="text-lg font-bold text-gray-900">{staff.firstName} {staff.lastName}</h3>
+                <p className="text-gray-600 capitalize">{staff.role}</p>
+            </div>
         </div>
-        
-        {staff.skills && staff.skills.length > 0 && (
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div><p className="font-medium text-gray-700">Email:</p><p>{staff.email}</p></div>
+          <div><p className="font-medium text-gray-700">Phone:</p><p>{staff.phone || 'N/A'}</p></div>
+          <div><p className="font-medium text-gray-700">Department:</p><p>{staff.department || 'N/A'}</p></div>
+          <div><p className="font-medium text-gray-700">Hire Date:</p><p>{formatDate(staff.hireDate)}</p></div>
+        </div>
+         {staff.skills && staff.skills.length > 0 && (
           <div>
             <label className="font-medium text-gray-700">Skills:</label>
             <div className="flex flex-wrap gap-1 mt-1">
@@ -831,22 +551,10 @@ const ViewStaffModal = ({ isOpen, onClose, staff }) => {
             </div>
           </div>
         )}
-        
         {staff.bio && (
           <div>
             <label className="font-medium text-gray-700">Bio:</label>
             <p className="text-gray-900 text-sm mt-1">{staff.bio}</p>
-          </div>
-        )}
-
-        {staff.mentees && staff.mentees.length > 0 && (
-          <div>
-            <label className="font-medium text-gray-700">Current Mentees:</label>
-            <ul className="list-disc list-inside text-gray-900 text-sm mt-1">
-              {staff.mentees.map((mentee, index) => (
-                <li key={index}>{mentee.firstName} {mentee.lastName}</li>
-              ))}
-            </ul>
           </div>
         )}
       </div>

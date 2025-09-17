@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { Plus, Eye, DollarSign, Edit, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
-import { apiClient } from '../../services/api';
+import api from '../../services/api'; // Corrected import
 import { formatDate, formatCurrency } from '../../utils/formatters';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import Modal from '../../components/UI/Modal';
@@ -42,11 +42,11 @@ const Invoices = () => {
 
   const { data: invoicesData, isLoading } = useQuery(
     ['invoices', { status: statusFilter !== 'all' ? statusFilter : '' }],
-    () => apiClient.get(`/invoices?status=${statusFilter !== 'all' ? statusFilter : ''}`)
+    () => api.get(`/invoices?status=${statusFilter !== 'all' ? statusFilter : ''}`) // Corrected usage
   );
 
   const createInvoiceMutation = useMutation(
-    (invoiceData) => apiClient.post('/invoices', invoiceData),
+    (invoiceData) => api.post('/invoices', invoiceData), // Corrected usage
     {
       onSuccess: () => {
         queryClient.invalidateQueries('invoices');
@@ -60,7 +60,7 @@ const Invoices = () => {
   );
 
   const updateInvoiceMutation = useMutation(
-    ({ id, ...invoiceData }) => apiClient.put(`/invoices/${id}`, invoiceData),
+    ({ id, ...invoiceData }) => api.put(`/invoices/${id}`, invoiceData), // Corrected usage
     {
       onSuccess: () => {
         queryClient.invalidateQueries('invoices');
@@ -74,7 +74,7 @@ const Invoices = () => {
   );
 
   const updateStatusMutation = useMutation(
-    ({ id, status }) => apiClient.patch(`/invoices/${id}/status`, { status }),
+    ({ id, status }) => api.patch(`/invoices/${id}/status`, { status }), // Corrected usage
     {
       onSuccess: () => {
         queryClient.invalidateQueries('invoices');

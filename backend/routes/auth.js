@@ -3,7 +3,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
-const { User } = require('../models');
+const { User, Staff } = require('../models'); // Import Staff model
 const { auth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -65,7 +65,7 @@ router.post('/register', [
   }
 });
 
-// Login
+// User Login
 router.post('/login', [
   body('email').isEmail().normalizeEmail(),
   body('password').exists()
@@ -95,7 +95,7 @@ router.post('/login', [
 
     // Generate token
     const token = jwt.sign(
-      { userId: user.id },
+      { userId: user.id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -116,16 +116,75 @@ router.post('/login', [
   }
 });
 
+// Staff Login
+router.post('/login/staff', [
+  body('email').isEmail().normalizeEmail(),
+  body('password').exists()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email, password } = req.body;
+
+    const staff = await Staff.findOne({ where: { email } });
+    if (!staff || !staff.isActive) {
+      return res.status(401).json({ message: 'Invalid credentials or inactive account.' });
+    }
+    
+    if (!staff.password) {
+      return res.status(401).json({ message: 'Password not set for this account.' });
+    }
+
+    const isMatch = await staff.validPassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials.' });
+    }
+
+    const token = jwt.sign(
+      { userId: staff.id, role: staff.role, isStaff: true },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: staff.id,
+        email: staff.email,
+        firstName: staff.firstName,
+        lastName: staff.lastName,
+        role: staff.role
+      }
+    });
+  } catch (error) {
+    console.error('Staff login error:', error);
+    res.status(500).json({ message: 'Server error during staff login.' });
+  }
+});
+
+
 // Get current user
 router.get('/me', auth, async (req, res) => {
   try {
+    // The `auth` middleware already finds the user and attaches it to req.user.
+    // We just need to find the definitive user record from the database using the correct primary key.
     const user = await User.findByPk(req.user.id, {
       attributes: ['id', 'email', 'firstName', 'lastName', 'role', 'isActive', 'lastLogin']
     });
+
+    if (!user) {
+        // This should be impossible for a correctly authenticated request.
+        return res.status(404).json({ message: 'Authenticated user not found in database.' });
+    }
+
     res.json(user);
+
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error fetching current user:', error);
+    res.status(500).json({ message: 'Server error while fetching user profile.' });
   }
 });
 
@@ -141,24 +200,28 @@ router.put('/profile', auth, [
     }
 
     const { firstName, lastName } = req.body;
+    
+    const userToUpdate = await User.findByPk(req.user.id);
+    
+    if (!userToUpdate) {
+        return res.status(404).json({ message: 'Authenticated user not found in database.' });
+    }
 
-    await req.user.update({
+    await userToUpdate.update({
       firstName,
       lastName
     });
 
     res.json({
-      id: req.user.id,
-      email: req.user.email,
-      firstName: req.user.firstName,
-      lastName: req.user.lastName,
-      role: req.user.role,
-      isActive: req.user.isActive,
-      lastLogin: req.user.lastLogin
+      id: userToUpdate.id,
+      email: userToUpdate.email,
+      firstName: userToUpdate.firstName,
+      lastName: userToUpdate.lastName,
+      role: userToUpdate.role
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Profile update error:', error);
+    res.status(500).json({ message: 'Server error while updating profile.' });
   }
 });
 

@@ -147,24 +147,26 @@ The project uses Tailwind CSS with custom utility classes:
 
 ### API Calls
 
-Use React Query for all API calls:
+Use React Query for all API calls by importing the default `api` object from the API service module. This object is an abstraction over `axios` and automatically handles authentication tokens and error responses.
 
 ```javascript
-import { useQuery, useMutation } from 'react-query';
-import { apiClient } from '../services/api';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
+import api from '../services/api';
 
 // Fetching data
 const { data, isLoading, error } = useQuery(
-  'queryKey',
-  () => apiClient.get('/endpoint')
+  'mentees', // A unique key for the query
+  () => api.get('/mentees')
 );
 
-// Mutations
-const mutation = useMutation(
-  (data) => apiClient.post('/endpoint', data),
+// Creating data (Mutation)
+const queryClient = useQueryClient();
+const createMenteeMutation = useMutation(
+  (newMentee) => api.post('/mentees', newMentee),
   {
     onSuccess: () => {
-      // Handle success
+      // Invalidate and refetch the 'mentees' query
+      queryClient.invalidateQueries('mentees');
     }
   }
 );

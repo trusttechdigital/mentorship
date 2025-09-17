@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, Eye, Edit, Trash2, BookOpen, ChevronLeft, ChevronRight, Camera } from 'lucide-react';
-import { apiClient } from '../../services/api';
+import api from '../../services/api'; // Corrected import
 import { formatDate } from '../../utils/formatters';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import Modal from '../../components/UI/Modal';
@@ -48,19 +49,36 @@ const Mentees = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
   const queryClient = useQueryClient();
+  const { id: menteeIdFromUrl } = useParams();
+  const navigate = useNavigate();
 
   // --- Data Fetching ---
-  const { data: menteesData, isLoading: isLoadingMentees } = useQuery('mentees', () => apiClient.get('/mentees?limit=1000'), { retry: 1 });
+  const { data: menteesData, isLoading: isLoadingMentees } = useQuery('mentees', () => api.get('/mentees?limit=1000'), { retry: 1 });
   const { data: therapyNotesData, isLoading: isLoadingNotes } = useQuery(
     ['therapyNotes', selectedMentee?.id],
-    () => apiClient.get(`/therapy-notes?menteeId=${selectedMentee.id}`),
+    () => api.get(`/therapy-notes?menteeId=${selectedMentee.id}`),
     { enabled: !!selectedMentee && isTherapyNotesModalOpen, retry: 1 }
+  );
+  
+  // This query is ONLY for fetching a single user when the ID is in the URL
+  useQuery(
+    ['mentees', menteeIdFromUrl],
+    () => api.get(`/mentees/${menteeIdFromUrl}`),
+    {
+        enabled: !!menteeIdFromUrl,
+        onSuccess: (data) => {
+            openModal(setIsViewModalOpen, data.mentee);
+        },
+        onError: () => {
+            toast.error("Could not find mentee.");
+            navigate('/mentees');
+        }
+    }
   );
 
   // --- Mutations ---
   const useMenteeMutation = (mutationFn, successToast, isUpdate = false) => useMutation(mutationFn, {
     onSuccess: (data, variables) => {
-      // For updates, we can update the cache directly for a faster UI response
       if (isUpdate) {
         queryClient.setQueryData('mentees', (oldData) => {
             const updatedMentees = oldData.mentees.map(mentee => 
@@ -72,16 +90,15 @@ const Mentees = () => {
         queryClient.invalidateQueries('mentees');
       }
       toast.success(successToast);
-      setIsCreateModalOpen(false);
-      setIsEditModalOpen(false);
+      closeAllModals();
     },
     onError: (error) => toast.error(error.message || 'An error occurred'),
   });
 
-  const createMenteeMutation = useMenteeMutation((data) => apiClient.post('/mentees', data), 'Mentee created successfully!');
-  const updateMenteeMutation = useMenteeMutation(({ id, data }) => apiClient.put(`/mentees/${id}`, data), 'Mentee updated successfully!', true);
+  const createMenteeMutation = useMenteeMutation((data) => api.post('/mentees', data), 'Mentee created successfully!');
+  const updateMenteeMutation = useMenteeMutation(({ id, data }) => api.put(`/mentees/${id}`, data), 'Mentee updated successfully!', true);
 
-  const addTherapyNoteMutation = useMutation((noteData) => apiClient.post('/therapy-notes', noteData), {
+  const addTherapyNoteMutation = useMutation((noteData) => api.post('/therapy-notes', noteData), {
     onSuccess: () => {
       queryClient.invalidateQueries(['therapyNotes', selectedMentee.id]);
       toast.success('Therapy note added successfully!');
@@ -90,14 +107,14 @@ const Mentees = () => {
   });
 
   const uploadPhotoMutation = useMutation(
-    ({ id, formData }) => apiClient.uploadFile(`/mentees/${id}/upload-photo`, formData),
+    ({ id, formData }) => api.uploadFile(`/mentees/${id}/upload-photo`, formData),
     {
       onSuccess: (data) => {
         queryClient.invalidateQueries('mentees');
         toast.success('Photo uploaded successfully!');
       },
       onError: (error) => {
-        console.error('Upload error:', error); // Enhanced logging
+        console.error('Upload error:', error);
         toast.error(error.response?.data?.message || error.message || 'Failed to upload photo.');
       },
     }
@@ -107,6 +124,17 @@ const Mentees = () => {
   const openModal = (modalSetter, mentee = null) => {
     setSelectedMentee(mentee);
     modalSetter(true);
+  };
+
+  const closeAllModals = () => {
+    setIsCreateModalOpen(false);
+    setIsEditModalOpen(false);
+    setIsViewModalOpen(false);
+    setIsTherapyNotesModalOpen(false);
+    setSelectedMentee(null);
+    if (menteeIdFromUrl) {
+      navigate('/mentees', { replace: true });
+    }
   };
 
   const handleAddNote = (noteData, { onSuccess }) => {
@@ -171,10 +199,10 @@ const Mentees = () => {
 
         {totalPages > 1 && <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} count={filteredMentees.length} />}
 
-        {isCreateModalOpen && <MenteeModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} onSubmit={createMenteeMutation.mutate} isLoading={createMenteeMutation.isLoading} title="Add New Mentee" />}
-        {isEditModalOpen && <MenteeModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSubmit={(data) => updateMenteeMutation.mutate({ id: selectedMentee.id, data })} onUploadPhoto={handlePhotoUpload} isUploading={uploadPhotoMutation.isLoading} isLoading={updateMenteeMutation.isLoading} mentee={selectedMentee} title="Edit Mentee" />}
-        {isViewModalOpen && <ViewMenteeModal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} mentee={selectedMentee} />}
-        {isTherapyNotesModalOpen && <TherapyNotesModal isOpen={isTherapyNotesModalOpen} onClose={() => setIsTherapyNotesModalOpen(false)} mentee={selectedMentee} therapyNotes={therapyNotesData?.notes || []} isLoadingNotes={isLoadingNotes} onAddNote={handleAddNote} isAddingNote={addTherapyNoteMutation.isLoading} />}
+        {isCreateModalOpen && <MenteeModal isOpen={isCreateModalOpen} onClose={closeAllModals} onSubmit={createMenteeMutation.mutate} isLoading={createMenteeMutation.isLoading} title="Add New Mentee" />}
+        {isEditModalOpen && <MenteeModal isOpen={isEditModalOpen} onClose={closeAllModals} onSubmit={(data) => updateMenteeMutation.mutate({ id: selectedMentee.id, data })} onUploadPhoto={handlePhotoUpload} isUploading={uploadPhotoMutation.isLoading} isLoading={updateMenteeMutation.isLoading} mentee={selectedMentee} title="Edit Mentee" />}
+        {isViewModalOpen && <ViewMenteeModal isOpen={isViewModalOpen} onClose={closeAllModals} mentee={selectedMentee} />}
+        {isTherapyNotesModalOpen && <TherapyNotesModal isOpen={isTherapyNotesModalOpen} onClose={closeAllModals} mentee={selectedMentee} therapyNotes={therapyNotesData?.notes || []} isLoadingNotes={isLoadingNotes} onAddNote={handleAddNote} isAddingNote={addTherapyNoteMutation.isLoading} />}
     </div>
   );
 };
@@ -192,9 +220,13 @@ const Pagination = ({ currentPage, totalPages, onPageChange, count }) => (
 );
 
 const MenteeModal = ({ isOpen, onClose, onSubmit, mentee = {}, title, isLoading, onUploadPhoto, isUploading }) => {
-  const [formData, setFormData] = useState({ ...mentee, dateOfBirth: mentee.dateOfBirth ? new Date(mentee.dateOfBirth).toISOString().split('T')[0] : '' });
+  const [formData, setFormData] = useState({});
   const fileInputRef = useRef(null);
   const isEditMode = !!mentee.id;
+  
+  useEffect(() => {
+    setFormData({ ...mentee, dateOfBirth: mentee.dateOfBirth ? new Date(mentee.dateOfBirth).toISOString().split('T')[0] : '' });
+  }, [mentee]);
 
   const handleSubmit = (e) => { 
     e.preventDefault(); 

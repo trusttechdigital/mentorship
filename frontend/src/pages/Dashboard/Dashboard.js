@@ -3,7 +3,7 @@ import { useQuery } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Users, BookOpen, FileText, DollarSign, Package, Clock, TrendingUp, AlertTriangle } from 'lucide-react';
-import { apiClient } from '../../services/api';
+import api from '../../services/api'; // Corrected import
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 
 const Dashboard = () => {
@@ -13,7 +13,7 @@ const Dashboard = () => {
   // Fetch dashboard stats from backend
   const { data: dashboardData, isLoading, error } = useQuery(
     'dashboard-stats',
-    () => apiClient.get('/dashboard/stats'),
+    () => api.get('/dashboard/stats'), // Corrected usage
     {
       retry: 1,
       refetchOnWindowFocus: false,

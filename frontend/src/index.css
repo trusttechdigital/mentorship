@@ -19,7 +19,7 @@
 }
 
 .table-container {
-  @apply bg-white rounded-lg shadow overflow-hidden border border-gray-100;
+  @apply bg-white rounded-lg shadow overflow-x-auto border border-gray-100;
 }
 
 .status-badge {

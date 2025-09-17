@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { Plus, Eye, Receipt, Edit, CheckCircle, XCircle } from 'lucide-react';
-import { apiClient } from '../../services/api';
+import api from '../../services/api'; // Corrected import
 import { formatDate, formatCurrency } from '../../utils/formatters';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import Modal from '../../components/UI/Modal';
@@ -26,11 +26,11 @@ const Receipts = () => {
 
   const { data: receiptsData, isLoading } = useQuery(
     ['receipts', { status: statusFilter !== 'all' ? statusFilter : '' }],
-    () => apiClient.get(`/receipts?status=${statusFilter !== 'all' ? statusFilter : ''}`)
+    () => api.get(`/receipts?status=${statusFilter !== 'all' ? statusFilter : ''}`) // Corrected usage
   );
 
   const createReceiptMutation = useMutation(
-    (receiptData) => apiClient.post('/receipts', receiptData),
+    (receiptData) => api.post('/receipts', receiptData), // Corrected usage
     {
       onSuccess: () => {
         queryClient.invalidateQueries('receipts');
@@ -44,7 +44,7 @@ const Receipts = () => {
   );
 
   const updateReceiptMutation = useMutation(
-    ({ id, ...receiptData }) => apiClient.put(`/receipts/${id}`, receiptData),
+    ({ id, ...receiptData }) => api.put(`/receipts/${id}`, receiptData), // Corrected usage
     {
       onSuccess: () => {
         queryClient.invalidateQueries('receipts');
@@ -58,7 +58,7 @@ const Receipts = () => {
   );
   
   const updateStatusMutation = useMutation(
-    ({ id, status }) => apiClient.patch(`/receipts/${id}/status`, { status }),
+    ({ id, status }) => api.patch(`/receipts/${id}/status`, { status }), // Corrected usage
     {
       onSuccess: () => {
         queryClient.invalidateQueries('receipts');

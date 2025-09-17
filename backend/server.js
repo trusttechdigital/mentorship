@@ -19,9 +19,14 @@ const inventoryRoutes = require('./routes/inventory');
 const auditRoutes = require('./routes/audit');
 const dashboardRoutes = require('./routes/dashboard');
 const therapyNotesRoutes = require('./routes/therapyNotes');
+const searchRoutes = require('./routes/search');
+const notificationRoutes = require('./routes/notifications');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Trust the first proxy
+app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet());
@@ -42,7 +47,9 @@ app.use((err, req, res, next) => {
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: 100, // limit each IP to 100 requests per windowMs
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 app.use('/api/', limiter);
 
@@ -66,6 +73,8 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/therapy-notes', therapyNotesRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

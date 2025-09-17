@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { Plus, Eye, Edit, Trash2, User, Calendar, FileText, Clock, AlertCircle, BookOpen, Camera, MapPin, Building, GraduationCap } from 'lucide-react';
-import { apiClient } from '../../services/api';
+import api from '../../services/api';
 import { formatDate, formatDateTime } from '../../utils/formatters';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import Modal from '../../components/UI/Modal';

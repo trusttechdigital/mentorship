@@ -8,6 +8,8 @@ const Modal = ({ isOpen, onClose, title, children, size = 'medium' }) => {
     small: 'max-w-md',
     medium: 'max-w-lg',
     large: 'max-w-2xl',
+    '2xl': 'max-w-4xl',
+    '3xl': 'max-w-5xl',
     xlarge: 'max-w-4xl',
     xxlarge: 'max-w-5xl'
   };

@@ -4,7 +4,7 @@ const { body, validationResult } = require('express-validator');
 const { Mentee, Staff } = require('../models');
 const { auth, authorize } = require('../middleware/auth');
 const auditLog = require('../middleware/audit');
-const { upload, uploadToSpaces } = require('../utils/fileUploader');
+const { upload, uploadToSpaces, deleteFromSpaces } = require('../utils/fileUploader');
 const { sequelize } = require('../models'); // Import sequelize for transactions
 
 const router = express.Router();
@@ -111,7 +111,7 @@ router.put('/:id', [
     }
 
     // Fix for empty dateOfBirth
-    if (req.body.dateOfBirth === '') {
+    if (req.body.dateOfBirt === '') {
       req.body.dateOfBirth = null;
     }
 
@@ -148,7 +148,10 @@ router.post('/:id/upload-photo', [
       return res.status(404).json({ message: 'Mentee not found' });
     }
 
-    // TODO: Delete old photo from Spaces if it exists (mentee.photoFileKey)
+    // If a photo already exists, delete it from Spaces
+    if (mentee.photoFileKey) {
+      await deleteFromSpaces(mentee.photoFileKey);
+    }
 
     const { fileUrl, fileKey } = await uploadToSpaces(req.file);
 
@@ -187,7 +190,10 @@ router.delete('/:id', [
       return res.status(404).json({ message: 'Mentee not found' });
     }
     
-    // TODO: Delete photo from Spaces before deleting the mentee record
+    // If a photo exists, delete it from Spaces before deleting the mentee
+    if (mentee.photoFileKey) {
+      await deleteFromSpaces(mentee.photoFileKey);
+    }
 
     await mentee.destroy({ transaction: t });
     await t.commit();

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { Upload, Download, Eye, Trash2, FileText, Filter, ExternalLink } from 'lucide-react';
-import { apiClient } from '../../services/api';
+import api from '../../services/api'; // Corrected import
 import { formatDate, formatFileSize } from '../../utils/formatters';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import FileUpload from '../../components/UI/FileUpload';
@@ -15,11 +15,11 @@ const Documents = () => {
 
   const { data: documentsData, isLoading } = useQuery(
     ['documents', { category: selectedCategory !== 'all' ? selectedCategory : '' }],
-    () => apiClient.get(`/documents?category=${selectedCategory !== 'all' ? selectedCategory : ''}`)
+    () => api.get(`/documents?category=${selectedCategory !== 'all' ? selectedCategory : ''}`) // Corrected usage
   );
 
   const uploadMutation = useMutation(
-    (formData) => apiClient.uploadFile('/documents/upload', formData),
+    (formData) => api.uploadFile('/documents/upload', formData), // Corrected usage
     {
       onSuccess: () => {
         queryClient.invalidateQueries('documents');

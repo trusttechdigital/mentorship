@@ -11,7 +11,7 @@ import {
   X
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { apiClient } from '../../services/api';
+import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 const Header = () => {
@@ -26,13 +26,13 @@ const Header = () => {
 
   const { data: notificationsData, isLoading: isLoadingNotifications } = useQuery(
     'notifications',
-    () => apiClient.get('/notifications')
+    () => api.get('/notifications')
   );
   const notifications = notificationsData?.notifications || [];
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const markAsReadMutation = useMutation(
-    (notificationId) => apiClient.patch(`/notifications/${notificationId}/read`),
+    (notificationId) => api.patch(`/notifications/${notificationId}/read`),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('notifications');

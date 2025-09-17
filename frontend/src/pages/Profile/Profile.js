@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { User, Mail, Shield, Save, X } from 'lucide-react';
-import { apiClient } from '../../services/api';
+import api from '../../services/api';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import toast from 'react-hot-toast';
 
@@ -19,15 +19,15 @@ const Profile = () => {
   // Fetch current user profile data
   const { data: profileData, isLoading: profileLoading } = useQuery(
     'userProfile',
-    () => apiClient.get('/auth/me'),
+    () => api.get('/auth/me'),
     {
       retry: false,
-      onSuccess: (data) => {
-        if (data) {
+      onSuccess: (response) => {
+        if (response && response.data) {
           setFormData({
-            firstName: data.firstName || '',
-            lastName: data.lastName || '',
-            email: data.email || '',
+            firstName: response.data.firstName || '',
+            lastName: response.data.lastName || '',
+            email: response.data.email || '',
           });
         }
       },
@@ -39,35 +39,27 @@ const Profile = () => {
 
   // Update profile mutation
   const updateProfileMutation = useMutation(
-    (profileData) => apiClient.put('/auth/profile', profileData),
+    (profileData) => api.put('/auth/profile', profileData),
     {
-      onSuccess: (data) => {
+      onSuccess: (response) => {
+        const updatedUserData = response.data;
         // Update the user in AuthContext
         if (updateUser) {
-          updateUser(data);
+          updateUser(updatedUserData);
         }
         
         // Invalidate and refetch user data
         queryClient.invalidateQueries('userProfile');
-        queryClient.setQueryData('userProfile', data);
+        queryClient.setQueryData('userProfile', updatedUserData);
         
         setIsEditing(false);
         toast.success('Profile updated successfully');
       },
       onError: (error) => {
         console.error('Profile update failed:', error);
-        // Fallback for demo mode when API isn't available
-        toast.success('Profile updated successfully (Demo Mode)');
+        const serverMessage = error.response?.data?.message;
+        toast.error(serverMessage || 'An error occurred while updating your profile.');
         setIsEditing(false);
-        
-        // Update AuthContext with form data as fallback
-        if (updateUser) {
-          updateUser({
-            ...user,
-            firstName: formData.firstName,
-            lastName: formData.lastName
-          });
-        }
       }
     }
   );
@@ -89,7 +81,7 @@ const Profile = () => {
 
   const handleCancel = () => {
     // Reset form to current user data
-    const currentUser = profileData || user;
+    const currentUser = profileData?.data || user;
     setFormData({
       firstName: currentUser?.firstName || '',
       lastName: currentUser?.lastName || '',
@@ -106,7 +98,7 @@ const Profile = () => {
   };
 
   // Use profile data if available, otherwise fall back to auth context user
-  const displayUser = profileData || user;
+  const displayUser = profileData?.data || user;
 
   if (profileLoading && !user) {
     return <LoadingSpinner size="large" className="py-12" />;
@@ -114,8 +106,8 @@ const Profile = () => {
 
   const isFormValid = formData.firstName.trim() && formData.lastName.trim();
   const hasChanges = 
-    formData.firstName !== displayUser?.firstName || 
-    formData.lastName !== displayUser?.lastName;
+    formData.firstName.trim() !== (displayUser?.firstName || '') || 
+    formData.lastName.trim() !== (displayUser?.lastName || '');
 
   return (
     <div className="space-y-6">
@@ -138,7 +130,7 @@ const Profile = () => {
             <h3 className="text-lg font-medium text-gray-900">
               {isEditing ? 
                 `${formData.firstName} ${formData.lastName}` :
-                `${displayUser?.firstName} ${displayUser?.lastName}`
+                `${displayUser?.firstName || ''} ${displayUser?.lastName || ''}`
               }
             </h3>
             <p className="text-sm text-gray-500">{displayUser?.email}</p>

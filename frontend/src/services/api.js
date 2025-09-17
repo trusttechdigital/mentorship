@@ -1,12 +1,9 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-// Set the base URL to prefix all requests with /api
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
-console.log('🔗 API Client initialized with base URL:', API_BASE_URL);
-
-const axiosInstance = axios.create({
+const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
@@ -14,128 +11,46 @@ const axiosInstance = axios.create({
   },
 });
 
-axiosInstance.interceptors.request.use(
+apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('🔑 Adding token to request:', {
-        endpoint: config.url,
-        hasToken: !!token,
-        method: config.method?.toUpperCase(),
-      });
-    } else {
-      console.log('🔓 No token found for request:', {
-        endpoint: config.url,
-        method: config.method?.toUpperCase(),
-      });
     }
     return config;
   },
-  (error) => {
-    console.log('❌ Request interceptor error:', error);
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-axiosInstance.interceptors.response.use(
-  (response) => {
-    console.log('✅ API Response:', {
-      endpoint: response.config.url,
-      status: response.status,
-      method: response.config.method?.toUpperCase(),
-    });
-    return response;
-  },
+apiClient.interceptors.response.use(
+  (response) => response,
   (error) => {
-    console.log('❌ API Error:', {
-      endpoint: error.config?.url,
-      status: error.response?.status,
-      method: error.config?.method?.toUpperCase(),
-      message: error.message,
-    });
-
     if (error.response?.status === 401) {
-      console.log('🚫 401 Unauthorized - clearing tokens and redirecting to login');
       localStorage.removeItem('token');
-      localStorage.removeItem('isLoggedIn');
+      localStorage.removeItem('user');
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
     }
-
+    const errorMessage = error.response?.data?.message || error.message || 'An unexpected error occurred.';
+    toast.error(errorMessage);
     return Promise.reject(error);
   }
 );
 
-export const apiClient = {
-  get: async (endpoint) => {
-    try {
-      const response = await axiosInstance.get(endpoint);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || error.message);
-    }
-  },
-
-  post: async (endpoint, data) => {
-    try {
-      const response = await axiosInstance.post(endpoint, data);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || error.message);
-    }
-  },
-
-  put: async (endpoint, data) => {
-    try {
-      const response = await axiosInstance.put(endpoint, data);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || error.message);
-    }
-  },
-
-  patch: async (endpoint, data) => {
-    try {
-      const response = await axiosInstance.patch(endpoint, data);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || error.message);
-    }
-  },
-
-  delete: async (endpoint) => {
-    try {
-      const response = await axiosInstance.delete(endpoint);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || error.message);
-    }
-  },
-
-  uploadFile: async (endpoint, formData, onUploadProgress) => {
-    try {
-      const response = await axiosInstance.post(endpoint, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        onUploadProgress,
-      });
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || error.message);
-    }
-  },
-
-  downloadFile: async (endpoint) => {
-    try {
-      const response = await axiosInstance.get(endpoint, {
-        responseType: 'blob',
-      });
-      return response;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || error.message);
-    }
-  },
+// This is the exported object
+const api = {
+  get: (endpoint) => apiClient.get(endpoint),
+  post: (endpoint, data) => apiClient.post(endpoint, data),
+  put: (endpoint, data) => apiClient.put(endpoint, data),
+  patch: (endpoint, data) => apiClient.patch(endpoint, data),
+  delete: (endpoint) => apiClient.delete(endpoint),
+  uploadFile: (endpoint, formData, onUploadProgress) => apiClient.post(endpoint, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress,
+  }),
+  downloadFile: (endpoint) => apiClient.get(endpoint, { responseType: 'blob' }),
 };
+
+// Use default export to match the imports in other files
+export default api;

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { Plus, Edit, Package, AlertTriangle, TrendingUp, TrendingDown, Search, Eye, Trash2 } from 'lucide-react';
-import { apiClient } from '../../services/api';
+import api from '../../services/api'; // Corrected import
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import Modal from '../../components/UI/Modal';
@@ -21,74 +21,6 @@ const Inventory = () => {
   const [itemToDelete, setItemToDelete] = useState(null);
   const queryClient = useQueryClient();
 
-  // Mock data for when API isn't available
-  const mockInventory = [
-    {
-      id: '1',
-      itemName: 'Office Printer Paper',
-      description: 'A4 white printer paper, 500 sheets per pack',
-      category: 'Office Supplies',
-      quantity: 45,
-      minStock: 20,
-      maxStock: 100,
-      unitPrice: 12.50,
-      supplier: 'OfficeMax Grenada',
-      location: 'Storage Room A',
-      sku: 'OF-PP-001',
-      isActive: true,
-      createdAt: '2024-01-15T10:00:00Z',
-      updatedAt: '2024-08-15T14:30:00Z'
-    },
-    {
-      id: '2',
-      itemName: 'Training Binders',
-      description: '3-ring binders for training materials',
-      category: 'Training Materials',
-      quantity: 8,
-      minStock: 15,
-      maxStock: 50,
-      unitPrice: 8.99,
-      supplier: 'Caribbean Supplies Ltd',
-      location: 'Training Room Cabinet',
-      sku: 'TR-BD-002',
-      isActive: true,
-      createdAt: '2024-02-20T09:15:00Z',
-      updatedAt: '2024-08-10T11:20:00Z'
-    },
-    {
-      id: '3',
-      itemName: 'Computer Mouse',
-      description: 'Wireless optical mouse',
-      category: 'IT Equipment',
-      quantity: 25,
-      minStock: 10,
-      maxStock: 40,
-      unitPrice: 35.00,
-      supplier: 'TechWorld GD',
-      location: 'IT Storage',
-      sku: 'IT-MS-003',
-      isActive: true,
-      createdAt: '2024-03-05T16:45:00Z',
-      updatedAt: '2024-08-20T09:30:00Z'
-    },
-    {
-      id: '4',
-      itemName: 'Coffee Pods',
-      description: 'Medium roast coffee pods',
-      category: 'Kitchen Supplies',
-      quantity: 0,
-      minStock: 25,
-      maxStock: 100,
-      unitPrice: 0.85,
-      supplier: 'Spice Island Coffee',
-      location: 'Kitchen Pantry',
-      sku: 'KT-CF-004',
-      isActive: true,
-      createdAt: '2024-01-30T12:00:00Z',
-      updatedAt: '2024-08-18T15:45:00Z'
-    }
-  ];
-
   const { data: inventoryData, isLoading } = useQuery(
     ['inventory', { 
       category: categoryFilter !== 'all' ? categoryFilter : '',
@@ -100,7 +32,7 @@ const Inventory = () => {
       if (categoryFilter !== 'all') params.append('category', categoryFilter);
       if (stockFilter === 'low') params.append('lowStock', 'true');
       if (searchTerm) params.append('search', searchTerm);
-      return apiClient.get(`/inventory?${params}`);
+      return api.get(`/inventory?${params}`); // Corrected usage
     },
     { 
       retry: false,
@@ -109,7 +41,7 @@ const Inventory = () => {
   );
 
   const createItemMutation = useMutation(
-    (data) => apiClient.post('/inventory', data),
+    (data) => api.post('/inventory', data), // Corrected usage
     {
       onSuccess: () => {
         queryClient.invalidateQueries('inventory');
@@ -117,7 +49,6 @@ const Inventory = () => {
         toast.success('Inventory item created successfully');
       },
       onError: () => {
-        // Simulate successful creation for demo
         queryClient.invalidateQueries('inventory');
         setIsCreateModalOpen(false);
         toast.success('Inventory item created successfully (Demo Mode)');
@@ -126,7 +57,7 @@ const Inventory = () => {
   );
 
   const updateItemMutation = useMutation(
-    ({ id, data }) => apiClient.put(`/inventory/${id}`, data),
+    ({ id, data }) => api.put(`/inventory/${id}`, data), // Corrected usage
     {
       onSuccess: () => {
         queryClient.invalidateQueries('inventory');
@@ -142,7 +73,7 @@ const Inventory = () => {
 
   const updateStockMutation = useMutation(
     ({ id, quantity, operation }) => 
-      apiClient.patch(`/inventory/${id}/stock`, { quantity, operation }),
+      api.patch(`/inventory/${id}/stock`, { quantity, operation }), // Corrected usage
     {
       onSuccess: () => {
         queryClient.invalidateQueries('inventory');
@@ -157,7 +88,7 @@ const Inventory = () => {
   );
 
   const deleteItemMutation = useMutation(
-    (id) => apiClient.delete(`/inventory/${id}`),
+    (id) => api.delete(`/inventory/${id}`), // Corrected usage
     {
       onSuccess: () => {
         queryClient.invalidateQueries('inventory');
