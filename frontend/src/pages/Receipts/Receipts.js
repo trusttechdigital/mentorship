@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { Plus, Eye, Receipt, Edit, CheckCircle, XCircle } from 'lucide-react';
-import api from '../../services/api'; // Corrected import
+import api from '../../services/api';
 import { formatDate, formatCurrency } from '../../utils/formatters';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import Modal from '../../components/UI/Modal';
@@ -24,13 +24,13 @@ const Receipts = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const queryClient = useQueryClient();
 
-  const { data: receiptsData, isLoading } = useQuery(
+  const { data: receiptsResponse, isLoading } = useQuery(
     ['receipts', { status: statusFilter !== 'all' ? statusFilter : '' }],
-    () => api.get(`/receipts?status=${statusFilter !== 'all' ? statusFilter : ''}`) // Corrected usage
+    () => api.get(`/receipts?status=${statusFilter !== 'all' ? statusFilter : ''}`)
   );
 
   const createReceiptMutation = useMutation(
-    (receiptData) => api.post('/receipts', receiptData), // Corrected usage
+    (receiptData) => api.post('/receipts', receiptData),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('receipts');
@@ -44,7 +44,7 @@ const Receipts = () => {
   );
 
   const updateReceiptMutation = useMutation(
-    ({ id, ...receiptData }) => api.put(`/receipts/${id}`, receiptData), // Corrected usage
+    ({ id, ...receiptData }) => api.put(`/receipts/${id}`, receiptData),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('receipts');
@@ -58,7 +58,7 @@ const Receipts = () => {
   );
   
   const updateStatusMutation = useMutation(
-    ({ id, status }) => api.patch(`/receipts/${id}/status`, { status }), // Corrected usage
+    ({ id, status }) => api.patch(`/receipts/${id}/status`, { status }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('receipts');
@@ -100,7 +100,7 @@ const Receipts = () => {
 
   if (isLoading) return <LoadingSpinner size="large" className="py-12" />;
 
-  const receipts = receiptsData?.receipts || [];
+  const receipts = receiptsResponse?.data?.receipts || [];
 
   return (
     <div className="space-y-6">

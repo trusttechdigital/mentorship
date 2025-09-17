@@ -254,7 +254,7 @@ const StaffProfiles = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Role
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">
                 Department
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -285,7 +285,6 @@ const StaffProfiles = () => {
                       <div className="text-sm font-medium text-gray-900">
                         {member.firstName} {member.lastName}
                       </div>
-                      <div className="text-sm text-gray-500">{member.email}</div>
                     </div>
                   </div>
                 </td>
@@ -295,7 +294,7 @@ const StaffProfiles = () => {
                     <span className="ml-1 capitalize">{member.role}</span>
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 truncate max-w-xs">
                   {member.department || 'Not assigned'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -481,19 +480,39 @@ const EditStaffModal = ({ isOpen, onClose, onSubmit, staff, isLoading }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Staff Member" size="large">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <input type="text" name="firstName" value={formData.firstName || ''} onChange={handleChange} className="input-field" required />
-          <input type="text" name="lastName" value={formData.lastName || ''} onChange={handleChange} className="input-field" required />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+            <input type="text" name="firstName" value={formData.firstName || ''} onChange={handleChange} className="input-field" required />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+            <input type="text" name="lastName" value={formData.lastName || ''} onChange={handleChange} className="input-field" required />
+          </div>
         </div>
-        <input type="email" name="email" value={formData.email || ''} onChange={handleChange} className="input-field" required />
-        <div className="grid grid-cols-2 gap-4">
-          <input type="text" name="phone" value={formData.phone || ''} onChange={handleChange} className="input-field" />
-          <select name="role" value={formData.role || 'mentor'} onChange={handleChange} className="input-field" required>
-            <option value="mentor">Mentor</option> <option value="coordinator">Coordinator</option> <option value="admin">Admin</option>
-          </select>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <input type="email" name="email" value={formData.email || ''} onChange={handleChange} className="input-field" required />
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <input type="text" name="department" value={formData.department || ''} onChange={handleChange} className="input-field" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+            <input type="text" name="phone" value={formData.phone || ''} onChange={handleChange} className="input-field" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+            <select name="role" value={formData.role || 'mentor'} onChange={handleChange} className="input-field" required>
+              <option value="mentor">Mentor</option>
+              <option value="coordinator">Coordinator</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+            <input type="text" name="department" value={formData.department || ''} onChange={handleChange} className="input-field" />
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Hire Date</label>
             <input type="date" name="hireDate" value={formData.hireDate || ''} onChange={handleChange} className="input-field" required />
@@ -503,10 +522,13 @@ const EditStaffModal = ({ isOpen, onClose, onSubmit, staff, isLoading }) => {
           <label className="block text-sm font-medium text-gray-700 mb-1">Skills (one per line)</label>
           <textarea name="skillsText" value={formData.skillsText || ''} onChange={handleChange} rows="4" className="input-field resize-none" />
         </div>
-        <textarea name="bio" value={formData.bio || ''} onChange={handleChange} rows="3" className="input-field" />
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
+          <textarea name="bio" value={formData.bio || ''} onChange={handleChange} rows="3" className="input-field" />
+        </div>
         <div className="flex items-center">
-          <input type="checkbox" name="isActive" id="isActiveEdit" checked={formData.isActive || false} onChange={handleChange} className="mr-2" />
-          <label htmlFor="isActiveEdit">Active staff member</label>
+          <input type="checkbox" name="isActive" id="isActiveEdit" checked={formData.isActive || false} onChange={handleChange} className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" />
+          <label htmlFor="isActiveEdit" className="ml-2 block text-sm text-gray-900">Active staff member</label>
         </div>
         <div className="flex justify-end space-x-3">
           <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>

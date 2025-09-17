@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { Plus, Eye, DollarSign, Edit, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
-import api from '../../services/api'; // Corrected import
+import api from '../../services/api';
 import { formatDate, formatCurrency } from '../../utils/formatters';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import Modal from '../../components/UI/Modal';
@@ -40,13 +40,13 @@ const Invoices = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const queryClient = useQueryClient();
 
-  const { data: invoicesData, isLoading } = useQuery(
+  const { data: invoicesResponse, isLoading } = useQuery(
     ['invoices', { status: statusFilter !== 'all' ? statusFilter : '' }],
-    () => api.get(`/invoices?status=${statusFilter !== 'all' ? statusFilter : ''}`) // Corrected usage
+    () => api.get(`/invoices?status=${statusFilter !== 'all' ? statusFilter : ''}`)
   );
 
   const createInvoiceMutation = useMutation(
-    (invoiceData) => api.post('/invoices', invoiceData), // Corrected usage
+    (invoiceData) => api.post('/invoices', invoiceData),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('invoices');
@@ -60,7 +60,7 @@ const Invoices = () => {
   );
 
   const updateInvoiceMutation = useMutation(
-    ({ id, ...invoiceData }) => api.put(`/invoices/${id}`, invoiceData), // Corrected usage
+    ({ id, ...invoiceData }) => api.put(`/invoices/${id}`, invoiceData),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('invoices');
@@ -74,7 +74,7 @@ const Invoices = () => {
   );
 
   const updateStatusMutation = useMutation(
-    ({ id, status }) => api.patch(`/invoices/${id}/status`, { status }), // Corrected usage
+    ({ id, status }) => api.patch(`/invoices/${id}/status`, { status }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('invoices');
@@ -116,7 +116,7 @@ const Invoices = () => {
 
   if (isLoading) return <LoadingSpinner size="large" className="py-12" />;
 
-  const invoices = invoicesData?.invoices || [];
+  const invoices = invoicesResponse?.data?.invoices || [];
 
   return (
     <div className="space-y-6">

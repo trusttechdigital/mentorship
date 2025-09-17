@@ -188,11 +188,11 @@ const Inventory = () => {
 
   // Calculate stats
   const stats = {
-    totalItems: inventory.length,
-    lowStock: inventory.filter(item => item.quantity <= item.minStock).length,
-    outOfStock: inventory.filter(item => item.quantity === 0).length,
-    wellStocked: inventory.filter(item => item.quantity > item.minStock).length,
-    totalValue: inventory.reduce((sum, item) => sum + (item.quantity * (item.unitPrice || 0)), 0)
+    totalItems: filteredInventory.length,
+    lowStock: filteredInventory.filter(item => item.quantity <= item.minStock).length,
+    outOfStock: filteredInventory.filter(item => item.quantity === 0).length,
+    wellStocked: filteredInventory.filter(item => item.quantity > item.minStock).length,
+    totalValue: filteredInventory.reduce((sum, item) => sum + (item.quantity * (item.unitPrice || 0)), 0)
   };
 
   return (
@@ -342,7 +342,7 @@ const Inventory = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {inventory.map((item) => {
+            {filteredInventory.map((item) => {
               const stockStatus = getStockStatus(item);
               const totalValue = item.quantity * (item.unitPrice || 0);
               
@@ -435,7 +435,7 @@ const Inventory = () => {
             })}
           </tbody>
         </table>
-        {inventory.length === 0 && (
+        {filteredInventory.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             No inventory items found. Add your first item!
           </div>

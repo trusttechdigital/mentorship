@@ -3,6 +3,10 @@ import { Package, Plus, Search, AlertTriangle, TrendingUp, Edit, Trash2, Eye } f
 import Modal from '../../components/UI/Modal';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import toast from 'react-hot-toast';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
+import api from '../../services/api';
+import { formatCurrency, formatDate } from '../../utils/formatters';
+
 
 // Move getStockStatus function outside component to make it globally accessible
 const getStockStatus = (quantity, minQuantity, maxQuantity) => {
@@ -20,131 +24,83 @@ const StockManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
 
-  // Enhanced mock stock data
-  const [stockItems, setStockItems] = useState([
-    {
-      id: '1',
-      name: 'Office Supplies Kit',
-      sku: 'OSK-001',
-      category: 'Office',
-      quantity: 25,
-      minQuantity: 10,
-      maxQuantity: 50,
-      unitPrice: 15.99,
-      totalValue: 399.75,
-      supplier: 'Office Depot',
-      location: 'Storage Room A',
-      lastUpdated: '2024-08-15',
-      description: 'Complete office supplies including pens, papers, staples'
+  const { data: stockResponse, isLoading } = useQuery(
+    ['stock', { category: categoryFilter, status: statusFilter, search: searchTerm }],
+    () => {
+      const params = new URLSearchParams();
+      if (categoryFilter !== 'all') params.append('category', categoryFilter);
+      if (statusFilter !== 'all') params.append('status', statusFilter);
+      if (searchTerm) params.append('search', searchTerm);
+      return api.get(`/stock?${params.toString()}`);
     },
     {
-      id: '2', 
-      name: 'Training Materials Set',
-      sku: 'TMS-002',
-      category: 'Training',
-      quantity: 8,
-      minQuantity: 15,
-      maxQuantity: 30,
-      unitPrice: 45.00,
-      totalValue: 360.00,
-      supplier: 'Educational Resources Ltd',
-      location: 'Training Center',
-      lastUpdated: '2024-08-10',
-      description: 'Comprehensive training materials for mentorship programs'
-    },
-    {
-      id: '3',
-      name: 'Computer Equipment',
-      sku: 'CE-003',
-      category: 'Technology',
-      quantity: 12,
-      minQuantity: 5,
-      maxQuantity: 20,
-      unitPrice: 899.99,
-      totalValue: 10799.88,
-      supplier: 'Tech Solutions Inc',
-      location: 'IT Storage',
-      lastUpdated: '2024-08-20',
-      description: 'Laptops and tablets for staff and training purposes'
-    },
-    {
-      id: '4',
-      name: 'Cleaning Supplies',
-      sku: 'CS-004',
-      category: 'Maintenance',
-      quantity: 3,
-      minQuantity: 10,
-      maxQuantity: 25,
-      unitPrice: 25.50,
-      totalValue: 76.50,
-      supplier: 'CleanCorp',
-      location: 'Maintenance Room',
-      lastUpdated: '2024-08-18',
-      description: 'Sanitizers, disinfectants, and cleaning materials'
+      retry: false,
     }
-  ]);
+  );
 
-  // Filter items
-  const filteredItems = stockItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.category.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
-    
-    const matchesStatus = statusFilter === 'all' || 
-                         (statusFilter === 'low' && item.quantity <= item.minQuantity) ||
-                         (statusFilter === 'normal' && item.quantity > item.minQuantity && item.quantity < item.maxQuantity) ||
-                         (statusFilter === 'overstock' && item.quantity >= item.maxQuantity);
-    
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  const createItemMutation = useMutation(
+    (data) => api.post('/stock', data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('stock');
+        setIsCreateModalOpen(false);
+        toast.success('Stock item created successfully');
+      },
+      onError: (error) => toast.error(error.response?.data?.message || 'Failed to create item'),
+    }
+  );
 
-  const lowStockItems = stockItems.filter(item => item.quantity <= item.minQuantity);
-  const totalValue = stockItems.reduce((sum, item) => sum + item.totalValue, 0);
-  const categories = [...new Set(stockItems.map(item => item.category))];
+  const updateItemMutation = useMutation(
+    ({ id, data }) => api.put(`/stock/${id}`, data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('stock');
+        setIsEditModalOpen(false);
+        setSelectedItem(null);
+        toast.success('Stock item updated successfully');
+      },
+      onError: (error) => toast.error(error.response?.data?.message || 'Failed to update item'),
+    }
+  );
 
-  const handleCreateItem = (formData) => {
-    setIsLoading(true);
-    setTimeout(() => {
-      const newItem = {
-        ...formData,
-        id: Date.now().toString(),
-        totalValue: formData.quantity * formData.unitPrice,
-        lastUpdated: new Date().toISOString().split('T')[0]
-      };
-      setStockItems([...stockItems, newItem]);
-      setIsCreateModalOpen(false);
-      setIsLoading(false);
-      toast.success('Stock item added successfully');
-    }, 1000);
-  };
+  const restockItemMutation = useMutation(
+    ({ id, data }) => api.patch(`/stock/${id}/restock`, data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('stock');
+        setIsRestockModalOpen(false);
+        setSelectedItem(null);
+        toast.success('Stock updated successfully');
+      },
+      onError: (error) => toast.error(error.response?.data?.message || 'Failed to update stock'),
+    }
+  );
+
+  const deleteItemMutation = useMutation(
+    (id) => api.delete(`/stock/${id}`),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('stock');
+        toast.success('Stock item deleted successfully');
+      },
+      onError: (error) => toast.error(error.response?.data?.message || 'Failed to delete item'),
+    }
+  );
+
+  const handleCreateItem = (formData) => createItemMutation.mutate(formData);
+  const handleUpdateItem = (formData) => updateItemMutation.mutate({ id: selectedItem.id, data: formData });
+  const handleRestockSubmit = (restockData) => restockItemMutation.mutate({ id: selectedItem.id, data: restockData });
 
   const handleEditItem = (item) => {
     setSelectedItem(item);
     setIsEditModalOpen(true);
-  };
-
-  const handleUpdateItem = (formData) => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setStockItems(stockItems.map(item => 
-        item.id === selectedItem.id 
-          ? { ...item, ...formData, totalValue: formData.quantity * formData.unitPrice, lastUpdated: new Date().toISOString().split('T')[0] }
-          : item
-      ));
-      setIsEditModalOpen(false);
-      setSelectedItem(null);
-      setIsLoading(false);
-      toast.success('Stock item updated successfully');
-    }, 1000);
   };
 
   const handleViewItem = (item) => {
@@ -157,35 +113,20 @@ const StockManagement = () => {
     setIsRestockModalOpen(true);
   };
 
-  const handleRestockSubmit = (restockData) => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setStockItems(stockItems.map(item => 
-        item.id === selectedItem.id 
-          ? { 
-              ...item, 
-              quantity: restockData.operation === 'add' 
-                ? item.quantity + restockData.quantity
-                : restockData.operation === 'subtract'
-                ? Math.max(0, item.quantity - restockData.quantity)
-                : restockData.quantity,
-              lastUpdated: new Date().toISOString().split('T')[0]
-            }
-          : item
-      ));
-      setIsRestockModalOpen(false);
-      setSelectedItem(null);
-      setIsLoading(false);
-      toast.success('Stock updated successfully');
-    }, 1000);
-  };
-
   const handleDeleteItem = (itemId, itemName) => {
     if (window.confirm(`Are you sure you want to delete "${itemName}"?`)) {
-      setStockItems(stockItems.filter(item => item.id !== itemId));
-      toast.success('Stock item deleted successfully');
+      deleteItemMutation.mutate(itemId);
     }
   };
+
+  if (isLoading) return <LoadingSpinner size="large" className="py-12" />;
+
+  const stockItems = stockResponse?.data?.stock || [];
+  const filteredItems = stockItems; // The backend now handles filtering
+  const lowStockItems = stockItems.filter(item => item.quantity <= item.minQuantity);
+  const totalValue = stockItems.reduce((sum, item) => sum + (item.quantity * (item.unitPrice || 0)), 0);
+  const categories = [...new Set(stockItems.map(item => item.category))];
+
 
   return (
     <div className="space-y-6">
@@ -321,12 +262,12 @@ const StockManagement = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <Package className="w-8 h-8 text-gray-400 mr-3" />
-                      <div>
+                                            <div>
                         <div className="text-sm font-medium text-gray-900">
                           {item.name}
                         </div>
                         <div className="text-sm text-gray-500">
-                          Updated: {item.lastUpdated}
+                          Updated: {formatDate(item.updatedAt)}
                         </div>
                       </div>
                     </div>
@@ -348,10 +289,10 @@ const StockManagement = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    XCD ${item.unitPrice.toFixed(2)}
+                    {formatCurrency(item.unitPrice)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    XCD ${item.totalValue.toFixed(2)}
+                    {formatCurrency(item.quantity * (item.unitPrice || 0))}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`status-badge ${color} flex items-center`}>
@@ -409,7 +350,7 @@ const StockManagement = () => {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateItem}
-        isLoading={isLoading}
+        isLoading={createItemMutation.isLoading} 
       />
 
       <EditItemModal
@@ -420,8 +361,9 @@ const StockManagement = () => {
         }}
         onSubmit={handleUpdateItem}
         item={selectedItem}
-        isLoading={isLoading}
+        isLoading={updateItemMutation.isLoading} 
       />
+
 
       <ViewItemModal
         isOpen={isViewModalOpen}
@@ -442,7 +384,7 @@ const StockManagement = () => {
         }}
         onSubmit={handleRestockSubmit}
         item={selectedItem}
-        isLoading={isLoading}
+        isLoading={restockItemMutation.isLoading} 
       />
     </div>
   );
@@ -820,11 +762,11 @@ const ViewItemModal = ({ isOpen, onClose, item, onEdit, onRestock }) => {
           </div>
           <div>
             <label className="font-medium text-gray-700">Unit Price:</label>
-            <p className="text-gray-900">XCD ${item.unitPrice.toFixed(2)}</p>
+            <p className="text-gray-900">{formatCurrency(item.unitPrice)}</p>
           </div>
           <div>
             <label className="font-medium text-gray-700">Total Value:</label>
-            <p className="text-gray-900 font-medium">XCD ${item.totalValue.toFixed(2)}</p>
+            <p className="text-gray-900 font-medium">{formatCurrency(item.quantity * (item.unitPrice || 0))}</p>
           </div>
           <div>
             <label className="font-medium text-gray-700">Supplier:</label>
@@ -836,7 +778,7 @@ const ViewItemModal = ({ isOpen, onClose, item, onEdit, onRestock }) => {
           </div>
           <div className="col-span-2">
             <label className="font-medium text-gray-700">Last Updated:</label>
-            <p className="text-gray-900">{item.lastUpdated}</p>
+            <p className="text-gray-900">{formatDate(item.updatedAt)}</p>
           </div>
         </div>
         
