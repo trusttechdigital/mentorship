@@ -1,5 +1,5 @@
 # Makefile
-.PHONY: dev prod stop clean logs backup restore
+.PHONY: dev prod stop clean logs backup restore backup-gov
 
 # Development environment
 dev:
@@ -13,20 +13,16 @@ prod:
 
 # Stop all containers
 stop:
-	@docker-compose -f docker-compose.dev.yml down 2>/dev/null || true
-	@docker-compose down 2>/dev/null || true
+	@docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
 
 # Clean up containers and volumes
 clean: stop
 	@docker system prune -f
 	@docker volume prune -f
 
-# View logs
+# View logs for all services
 logs:
-	@docker-compose logs -f
-
-logs-dev:
-	@docker-compose -f docker-compose.dev.yml logs -f
+	@docker-compose -f docker-compose.prod.yml logs -f
 
 # Database backup
 backup:
@@ -38,6 +34,11 @@ restore:
 	@chmod +x scripts/restore-db.sh
 	@./scripts/restore-db.sh $(FILE)
 
+# Government-compliant backup
+backup-gov:
+	@chmod +x scripts/backup/government-backup-system.sh
+	@./scripts/backup/government-backup-system.sh
+
 # Health check
 health:
-	@docker-compose ps
+	@docker-compose -f docker-compose.prod.yml ps
