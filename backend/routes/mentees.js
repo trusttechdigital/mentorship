@@ -67,36 +67,88 @@ router.get('/:id', auth, async (req, res) => {
 
 // Create mentee
 router.post('/', [
-  auth,
-  authorize(['admin', 'coordinator']),
-  auditLog('CREATE', 'mentee'),
-  body('firstName').trim().notEmpty().withMessage('First name is required.'),
-  body('lastName').trim().notEmpty().withMessage('Last name is required.'),
-  body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('A valid email is required.'),
+    auth,
+    authorize(['admin', 'coordinator']),
+    auditLog('CREATE', 'mentee'),
+    // Validation rules
+    body('firstName').trim().notEmpty().withMessage('First name is required.'),
+    body('lastName').trim().notEmpty().withMessage('Last name is required.'),
+    body('hypeId').trim().notEmpty().withMessage('HYPE ID is required.'),
+    body('programStartDate').notEmpty().withMessage('Program start date is required.'),
+    body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('A valid email is required.'),
 ], async (req, res) => {
-  const t = await sequelize.transaction();
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
+    const t = await sequelize.transaction();
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
 
-    const mentee = await Mentee.create(req.body, { transaction: t });
-    await t.commit();
-    
-    const fullMentee = await Mentee.findByPk(mentee.id, {
-      include: [{ model: Staff, as: 'mentor' }]
-    });
-    
-    res.status(201).json(fullMentee);
-  } catch (error) {
-    await t.rollback();
-    console.error('Error creating mentee:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
+        const { hypeId, email } = req.body;
+
+        // Check for duplicate HYPE ID
+        const existingHypeId = await Mentee.findOne({ where: { hypeId } });
+        if (existingHypeId) {
+            return res.status(409).json({ message: 'A mentee with this HYPE ID already exists.' });
+        }
+
+        // Check for duplicate email
+        if (email) {
+            const existingEmail = await Mentee.findOne({ where: { email } });
+            if (existingEmail) {
+                return res.status(409).json({ message: 'A mentee with this email address already exists.' });
+            }
+        }
+
+        // Sanitize empty strings to null for fields that should be nullable
+        const sanitizedData = { ...req.body };
+        
+        // Convert empty strings to null for fields that should be nullable
+        // NOTE: programStartDate is required, so don't include it in this list
+        // programEndDate is optional (mentees may not have finished yet)
+        const fieldsToSanitize = [
+            'dateOfBirth', 
+            'gender', 
+            'email',
+            'schoolOrganization',
+            'formGrade', 
+            'probationOfficer',
+            'offenseType',
+            'programEndDate'  // Add this - it's optional
+        ];
+        
+        fieldsToSanitize.forEach(field => {
+            if (sanitizedData[field] === '') {
+                sanitizedData[field] = null;
+            }
+        });
+
+        const mentee = await Mentee.create(sanitizedData, { transaction: t });
+        await t.commit();
+
+        const fullMentee = await Mentee.findByPk(mentee.id, {
+            include: [{ model: Staff, as: 'mentor' }]
+        });
+
+        res.status(201).json(fullMentee);
+    } catch (error) {
+        await t.rollback();
+        console.error('Error creating mentee:', error);
+        console.error('Detailed error:', error.name, error.message);
+        if (error.errors) {
+            console.error('Validation errors:', error.errors);
+        }
+
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            const field = error.errors[0].path;
+            return res.status(409).json({ message: `A mentee with this ${field} already exists.` });
+        }
+        
+        res.status(500).json({ message: 'An unexpected error occurred during mentee creation.' });
+    }
 });
 
-// Update mentee
+// Also fix the UPDATE route typo:
 router.put('/:id', [
   auth,
   authorize(['admin', 'coordinator']),
@@ -110,12 +162,30 @@ router.put('/:id', [
       return res.status(404).json({ message: 'Mentee not found' });
     }
 
-    // Fix for empty dateOfBirth
-    if (req.body.dateOfBirt === '') {
-      req.body.dateOfBirth = null;
-    }
+    // Sanitize empty strings to null for fields that should be nullable
+    const sanitizedData = { ...req.body };
+    
+    // Convert empty strings to null for fields that should be nullable
+    // programStartDate is required, so don't include it
+    // programEndDate is optional, so include it
+    const fieldsToSanitize = [
+        'dateOfBirth', 
+        'gender', 
+        'email',
+        'schoolOrganization',
+        'formGrade', 
+        'probationOfficer',
+        'offenseType',
+        'programEndDate'  // Add this - it's optional
+    ];
+    
+    fieldsToSanitize.forEach(field => {
+        if (sanitizedData[field] === '') {
+            sanitizedData[field] = null;
+        }
+    });
 
-    await mentee.update(req.body, { transaction: t });
+    await mentee.update(sanitizedData, { transaction: t });
     await t.commit();
 
     const updatedMentee = await Mentee.findByPk(req.params.id, {

@@ -107,6 +107,19 @@ const Mentees = () => {
   const createMenteeMutation = useMenteeMutation((data) => api.post('/mentees', data), 'Mentee created successfully!');
   const updateMenteeMutation = useMenteeMutation(({ id, data }) => api.put(`/mentees/${id}`, data), 'Mentee updated successfully!', true);
 
+  // NEW: Delete mutation
+  const deleteMenteeMutation = useMutation((id) => api.delete(`/mentees/${id}`), {
+    onSuccess: () => {
+      queryClient.invalidateQueries('mentees');
+      toast.success('Mentee deleted successfully!');
+      closeAllModals();
+    },
+    onError: (error) => {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to delete mentee';
+      toast.error(errorMessage);
+    },
+  });
+
   const addTherapyNoteMutation = useMutation((noteData) => api.post('/therapy-notes', noteData), {
     onSuccess: () => {
       queryClient.invalidateQueries(['therapyNotes', selectedMentee.id]);
@@ -157,6 +170,13 @@ const Mentees = () => {
     uploadPhotoMutation.mutate({ id: selectedMentee.id, formData });
   };
 
+  // NEW: Delete handler function
+  const handleDeleteMentee = (mentee) => {
+    if (window.confirm(`Are you sure you want to delete ${mentee.firstName} ${mentee.lastName}? This action cannot be undone.`)) {
+      deleteMenteeMutation.mutate(mentee.id);
+    }
+  };
+
   // FIX: Properly access the nested data
   const allMentees = menteesResponse?.data?.mentees || [];
   const totalCount = menteesResponse?.data?.total || 0;
@@ -203,7 +223,14 @@ const Mentees = () => {
                                 <button onClick={() => openModal(setIsViewModalOpen, mentee)} className="text-blue-600 hover:text-blue-900" title="View"><Eye size={18} /></button>
                                 <button onClick={() => openModal(setIsEditModalOpen, mentee)} className="text-green-600 hover:text-green-900" title="Edit"><Edit size={18} /></button>
                                 <button onClick={() => openModal(setIsTherapyNotesModalOpen, mentee)} className="text-purple-600 hover:text-purple-900" title="Therapy Notes"><BookOpen size={18} /></button>
-                                <button onClick={() => toast.error('Delete is disabled')} className="text-red-600 hover:text-red-900" title="Delete"><Trash2 size={18} /></button>
+                                <button 
+                                  onClick={() => handleDeleteMentee(mentee)} 
+                                  className="text-red-600 hover:text-red-900 disabled:opacity-50" 
+                                  title="Delete"
+                                  disabled={deleteMenteeMutation.isLoading}
+                                >
+                                  <Trash2 size={18} />
+                                </button>
                             </div></td>
                         </tr>
                     ))}
@@ -234,25 +261,43 @@ const Pagination = ({ currentPage, totalPages, onPageChange, count }) => (
     </div>
 );
 
-// Rest of the modal components remain exactly the same...
-const MenteeModal = ({ isOpen, onClose, onSubmit, mentee = {}, title, isLoading, onUploadPhoto, isUploading }) => {
-  const [formData, setFormData] = useState({});
+const MenteeModal = ({ isOpen, onClose, onSubmit, mentee, title, isLoading, onUploadPhoto, isUploading }) => {
+  // This function sets up the initial form data, either from an existing mentee or as a blank slate.
+  const getInitialState = () => {
+    const initialData = mentee || {};
+    return {
+      ...initialData,
+      dateOfBirth: initialData.dateOfBirth ? new Date(initialData.dateOfBirth).toISOString().split('T')[0] : '',
+      // ADD THIS: Handle programStartDate field
+      programStartDate: initialData.programStartDate ? new Date(initialData.programStartDate).toISOString().split('T')[0] : '',
+      programEndDate: initialData.programEndDate ? new Date(initialData.programEndDate).toISOString().split('T')[0] : '',
+      age: initialData.dateOfBirth ? calculateAge(initialData.dateOfBirth) : ''
+    };
+  };
+
+  // The form's data is now initialized using the stable function above.
+  const [formData, setFormData] = useState(getInitialState);
   const fileInputRef = useRef(null);
-  const isEditMode = !!mentee.id;
+  const isEditMode = !!(mentee && mentee.id);
   
+  // This useEffect hook correctly resets the form ONLY when the modal is opened.
   useEffect(() => {
-    setFormData({ ...mentee, dateOfBirth: mentee.dateOfBirth ? new Date(mentee.dateOfBirth).toISOString().split('T')[0] : '' });
-  }, [mentee]);
+    if (isOpen) {
+      setFormData(getInitialState());
+    }
+  }, [mentee, isOpen]);
 
   const handleSubmit = (e) => { 
     e.preventDefault(); 
-    const { photoUrl, ...submitData } = formData;
+    const { photoUrl, age, ...submitData } = formData;
     onSubmit(submitData);
   };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value, ...(name === 'dateOfBirth' && { age: calculateAge(value) }) }));
   };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) onUploadPhoto(file);
@@ -264,15 +309,15 @@ const MenteeModal = ({ isOpen, onClose, onSubmit, mentee = {}, title, isLoading,
         {isEditMode && (
           <div className="w-1/3 flex flex-col items-center">
             <div className="relative group w-40 h-40">
-              {mentee.photoUrl ? (
+              {formData.photoUrl ? (
                 <img 
                   className="h-full w-full rounded-full object-cover transition-all duration-300 group-hover:brightness-50"
-                  src={mentee.photoUrl} 
-                  alt={`${mentee.firstName} ${mentee.lastName}`}
+                  src={formData.photoUrl} 
+                  alt={`${formData.firstName} ${formData.lastName}`}
                 />
               ) : (
                 <div className="h-full w-full rounded-full bg-teal-500 flex items-center justify-center">
-                  <span className="text-white text-lg font-bold">{mentee.firstName.charAt(0)}{mentee.lastName.charAt(0)}</span>
+                  <span className="text-white text-lg font-bold">{(formData.firstName || ' ').charAt(0)}{(formData.lastName || ' ').charAt(0)}</span>
                 </div>
               )}
               <button 
@@ -284,7 +329,7 @@ const MenteeModal = ({ isOpen, onClose, onSubmit, mentee = {}, title, isLoading,
             </div>
             <button type="button" onClick={() => fileInputRef.current.click()} className="btn-secondary mt-4 text-sm">
               <Camera size={16} className="mr-2"/>
-              {mentee.photoUrl ? 'Change Photo' : 'Upload Photo'}
+              {formData.photoUrl ? 'Change Photo' : 'Upload Photo'}
             </button>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/jpeg, image/png, image/webp"/>
             {isUploading && <div className="mt-2 flex items-center"><LoadingSpinner size='small'/><span className='ml-2'>Uploading...</span></div>}
@@ -298,12 +343,39 @@ const MenteeModal = ({ isOpen, onClose, onSubmit, mentee = {}, title, isLoading,
           </div>
           <input name="email" type="email" placeholder="Email Address" value={formData.email || ''} onChange={handleChange} className="input-field"/>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <input type="date" name="dateOfBirth" value={formData.dateOfBirth || ''} onChange={handleChange} className="input-field"/>
+            <input type="date" name="dateOfBirth" placeholder="Date of Birth" value={formData.dateOfBirth || ''} onChange={handleChange} className="input-field"/>
             <input name="age" placeholder="Age" value={formData.age || ''} onChange={handleChange} className="input-field bg-gray-100" readOnly/>
             <select name="gender" value={formData.gender || ''} onChange={handleChange} className="input-field">
                 <option value="">Select Gender</option><option value="Male">Male</option><option value="Female">Female</option>
             </select>
           </div>
+          
+          {/* Program Start and End Date fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Program Start Date</label>
+              <input 
+                type="date" 
+                name="programStartDate" 
+                value={formData.programStartDate || ''} 
+                onChange={handleChange} 
+                className="input-field"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Program End Date</label>
+              <input 
+                type="date" 
+                name="programEndDate" 
+                value={formData.programEndDate || ''} 
+                onChange={handleChange} 
+                className="input-field"
+                placeholder="Optional - Leave blank if program is ongoing"
+              />
+            </div>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input name="schoolOrganization" placeholder="School / Organization" value={formData.schoolOrganization || ''} onChange={handleChange} className="input-field"/>
             <input name="formGrade" placeholder="Grade / Form" value={formData.formGrade || ''} onChange={handleChange} className="input-field"/>
@@ -344,6 +416,8 @@ const ViewMenteeModal = ({ isOpen, onClose, mentee }) => {
           <InfoItem label="Age" value={mentee.age} />
           <InfoItem label="Gender" value={mentee.gender} />
           <InfoItem label="Email" value={mentee.email} />
+          <InfoItem label="Program Start Date" value={mentee.programStartDate ? formatDate(mentee.programStartDate) : 'N/A'} />
+          <InfoItem label="Program End Date" value={mentee.programEndDate ? formatDate(mentee.programEndDate) : 'N/A'} />
           <InfoItem label="School / Org" value={mentee.schoolOrganization} />
           <InfoItem label="Grade / Form" value={mentee.formGrade} />
           <InfoItem label="Probation Officer" value={mentee.probationOfficer} />
